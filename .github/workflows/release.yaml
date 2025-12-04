@@ -36,7 +36,6 @@ jobs:
 
       - name: Pack Minorag CLI (multi-target net8.0 + net10.0)
         run: |
-          # Tag name is like "v0.1.6" -> strip leading "v" for NuGet version
           VERSION="${GITHUB_REF_NAME#v}"
 
           echo "Packing Minorag.Cli version $VERSION"

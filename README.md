@@ -181,9 +181,9 @@ Minorag is ideal for:
 ## Triggering new release pipeline
 
 ```bash
-VERSION=v0.1.6
+VERSION=v0.1.7
 git tag -a ${VERSION} -m "Awesome release comment" 
-minorag % git push origin ${VERSION}
+git push origin ${VERSION}
 ```
 
 ---
