@@ -1,0 +1,44 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Minorag: ask",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build Minorag.Cli",
+            "program": "${workspaceFolder}/src/Minorag.Cli/bin/Debug/net10.0/Minorag.Cli.dll",
+            "args": [
+                "ask",
+                "${input:minoragQuestion}"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "justMyCode": true
+        },
+        {
+            "name": "Minorag: index",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build Minorag.Cli",
+            "program": "${workspaceFolder}/src/Minorag.Cli/bin/Debug/net10.0/Minorag.Cli.dll",
+            "args": [
+                "index",
+                "--repo",
+                "${workspaceFolder}"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "justMyCode": true
+        }
+    ],
+    "inputs": [
+        {
+            "id": "minoragQuestion",
+            "type": "promptString",
+            "description": "Question to ask Minorag",
+            "default": "What clients are used?"
+        }
+    ]
+}

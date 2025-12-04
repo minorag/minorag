@@ -1,0 +1,10 @@
+{
+    "recommendations": [
+        "ms-dotnettools.vscode-dotnet-runtime",
+        "ms-dotnettools.csharp",
+        "ms-dotnettools.csdevkit",
+        "kreativ-software.csharpextensions",
+        "streetsidesoftware.code-spell-checker",
+        "ryanluker.vscode-coverage-gutters"
+    ]
+}
