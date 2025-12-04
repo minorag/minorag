@@ -158,9 +158,42 @@ dbPathCommand.SetAction((parseResult) =>
     return Task.CompletedTask;
 });
 
+var promptCommand = new Command("prompt")
+{
+    Description = "Generate a ChatGPT/LLM-ready markdown prompt with indexed code context"
+};
+
+promptCommand.Add(questionArg);
+promptCommand.Add(dbOption);
+
+promptCommand.SetAction(async (parseResult, cancellationToken) =>
+{
+    var question = parseResult.GetRequiredValue(questionArg);
+    var dbFile = parseResult.GetValue(dbOption);
+    var dbPath = dbFile?.FullName ?? RagEnvironment.GetDefaultDbPath();
+
+    using var host = BuildHost(dbPath);
+    using var scope = host.Services.CreateScope();
+
+    var dbContext = scope.ServiceProvider.GetRequiredService<RagDbContext>();
+    await dbContext.Database.EnsureCreatedAsync(cancellationToken);
+
+    var searcher = scope.ServiceProvider.GetRequiredService<ISearcher>();
+    var formatter = scope.ServiceProvider.GetRequiredService<IPromptFormatter>();
+
+    // Retrieval only (no LLM)
+    var context = await searcher.RetrieveAsync(question, true, topK: 7, ct: cancellationToken);
+
+    var markdown = formatter.Format(context, question);
+
+    // Pure markdown to stdout → user can paste into ChatGPT / other LLMs
+    Console.WriteLine(markdown);
+});
+
 root.Add(dbPathCommand);
 root.Add(indexCommand);
 root.Add(askCommand);
+root.Add(promptCommand);
 
 return await root.Parse(args).InvokeAsync();
 

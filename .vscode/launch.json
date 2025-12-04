@@ -31,6 +31,21 @@
             "console": "integratedTerminal",
             "stopAtEntry": false,
             "justMyCode": true
+        },
+        {
+            "name": "Minorag: prompt",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build Minorag.Cli",
+            "program": "${workspaceFolder}/src/Minorag.Cli/bin/Debug/net10.0/Minorag.Cli.dll",
+            "args": [
+                "prompt",
+                "${input:minoragPromptQuestion}"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "justMyCode": true
         }
     ],
     "inputs": [
@@ -39,6 +54,12 @@
             "type": "promptString",
             "description": "Question to ask Minorag",
             "default": "What clients are used?"
+        },
+        {
+            "id": "minoragPromptQuestion",
+            "type": "promptString",
+            "description": "Generate ChatGPT prompt for:",
+            "default": "How is authentication implemented?"
         }
     ]
 }

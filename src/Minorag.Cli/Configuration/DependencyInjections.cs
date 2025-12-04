@@ -42,6 +42,7 @@ public static class DependencyInjections
         services.AddScoped<IIndexer, Indexer>();
         services.AddScoped<ISearcher, Searcher>();
 
+        services.AddSingleton<IPromptFormatter, MarkdownPromptFormatter>();
         // Presenter can stay singleton (stateless, console-only)
         services.AddSingleton<IConsoleSearchPresenter, ConsoleSearchPresenter>();
 

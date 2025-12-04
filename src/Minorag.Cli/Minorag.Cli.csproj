@@ -14,7 +14,7 @@
     <ToolCommandName>minorag</ToolCommandName>
     <PackageId>Minorag.Cli</PackageId>
 
-    <Version>0.1.6</Version>
+    <Version>0.1.9</Version>
 
     <Authors>Andrei Kurilo</Authors>
     <Description>Minorag codebase RAG CLI</Description>
