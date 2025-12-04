@@ -15,12 +15,42 @@ public class Indexer(ISqliteStore store, IEmbeddingProvider provider) : IIndexer
 {
     private static readonly HashSet<string> ExcludedDirs = new(StringComparer.OrdinalIgnoreCase)
     {
-        "bin", "obj", "node_modules", ".git", ".vs", ".idea"
+        "bin", "obj", "node_modules", ".git", ".vs", ".idea", ".venv",
+        "__pycache__", ".mypy_cache", ".pytest_cache",
+        ".gradle", "build", "out", "target",
+        "dist", "coverage", ".next", ".nuxt", "storybook-static",
+        "vendor", "logs", "tmp", "temp", ".cache",
+        "cmake-build-debug", "cmake-build-release", "CMakeFiles"
     };
 
     private static readonly HashSet<string> BinaryExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
-        "png", "ico", "jar", "woff", "woff2", "dll", "exe", "pdb", "snap", "gif", "jpg", "jpeg"
+        "png", "ico", "jar", "woff", "woff2", "dll", "exe", "pdb", "snap",
+        "gif", "jpg", "jpeg", "so",
+
+        // Images
+        "bmp", "tiff", "webp", "svgz",
+
+        // Design
+        "ai", "eps", "psd", "sketch",
+
+        // Documents
+        "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx",
+
+        // Audio + video
+        "mp3", "wav", "ogg", "mp4", "mov", "mkv", "avi",
+
+        // Archives
+        "zip", "rar", "7z", "tar", "gz", "bz2",
+
+        // Binary artifacts
+        "class", "wasm", "sqlite", "db", "bak",
+
+        // Fonts
+        "ttf", "otf", "eot",
+
+        // Misc
+        "lock", "bin"
     };
 
     public async Task IndexAsync(string rootPath, CancellationToken ct)
