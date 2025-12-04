@@ -20,7 +20,7 @@ public class Indexer(ISqliteStore store, IEmbeddingProvider provider) : IIndexer
 
     private static readonly HashSet<string> BinaryExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
-        "png", "ico", "jar", "woff", "woff2", "dll", "exe", "pdb", "snap"
+        "png", "ico", "jar", "woff", "woff2", "dll", "exe", "pdb", "snap", "gif", "jpg", "jpeg"
     };
 
     public async Task IndexAsync(string rootPath, CancellationToken ct)
