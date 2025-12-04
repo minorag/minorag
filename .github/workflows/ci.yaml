@@ -29,8 +29,9 @@ jobs:
       - name: Restore
         run: dotnet restore ./src/Minorag.sln
 
-      - name: Build
+      - name: Build (all target frameworks)
         run: dotnet build ./src/Minorag.sln --configuration Release --no-restore
 
+      # If/when you add tests, this will run them for all TFMs
       - name: Test
         run: dotnet test ./src/Minorag.sln --configuration Release --no-build --verbosity normal

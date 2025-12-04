@@ -6,7 +6,7 @@ on:
       - 'v*.*.*'
 
 permissions:
-  contents: write   # <-- this is the important bit
+  contents: write
 
 jobs:
   release:
@@ -28,14 +28,23 @@ jobs:
       - name: Restore
         run: dotnet restore ./src/Minorag.sln
 
-      - name: Build
+      - name: Build (all target frameworks)
         run: dotnet build ./src/Minorag.sln --configuration Release --no-restore
 
-      - name: Pack Minorag CLI
+      - name: Test
+        run: dotnet test ./src/Minorag.sln --configuration Release --no-build --verbosity normal
+
+      - name: Pack Minorag CLI (multi-target net8.0 + net10.0)
         run: |
+          # Tag name is like "v0.1.6" -> strip leading "v" for NuGet version
+          VERSION="${GITHUB_REF_NAME#v}"
+
+          echo "Packing Minorag.Cli version $VERSION"
+
           dotnet pack ./src/Minorag.Cli/Minorag.Cli.csproj \
             --configuration Release \
-            -o ./artifacts
+            -o ./artifacts \
+            /p:Version="$VERSION"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
