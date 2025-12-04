@@ -18,7 +18,7 @@ public class Indexer(ISqliteStore store, IEmbeddingProvider provider) : IIndexer
         "bin", "obj", "node_modules", ".git", ".vs", ".idea", ".venv",
         "__pycache__", ".mypy_cache", ".pytest_cache",
         ".gradle", "build", "out", "target",
-        "dist", "coverage", ".next", ".nuxt", "storybook-static",
+        "dist", "coverage", ".next", ".angular", ".nuxt", "storybook-static",
         "vendor", "logs", "tmp", "temp", ".cache",
         "cmake-build-debug", "cmake-build-release", "CMakeFiles"
     };
