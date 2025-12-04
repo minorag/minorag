@@ -1,5 +1,8 @@
+using System.Net;
 using System.Text;
+using System.Text.RegularExpressions;
 using Minorag.Cli.Models;
+using Minorag.Cli.Models.Domain;
 
 namespace Minorag.Cli.Services;
 
@@ -8,8 +11,10 @@ public interface IPromptFormatter
     string Format(SearchContext context, string question);
 }
 
-public class MarkdownPromptFormatter : IPromptFormatter
+public partial class MarkdownPromptFormatter : IPromptFormatter
 {
+    private const int MaxSnippetChars = 2000;
+
     public string Format(SearchContext context, string question)
     {
         var sb = new StringBuilder();
@@ -47,22 +52,29 @@ public class MarkdownPromptFormatter : IPromptFormatter
                 var chunk = scored.Chunk;
                 var score = scored.Score;
 
-                var language = string.IsNullOrWhiteSpace(chunk.Language)
-                    ? ""
-                    : chunk.Language.ToLowerInvariant();
-
                 var repoLabel = chunk.Repository?.Name
                                 ?? chunk.Repository?.RootPath
                                 ?? $"repo #{chunk.RepositoryId}";
 
+                var (language, contentForPrompt) = PrepareContent(chunk);
+
                 sb.AppendLine(
                     $"### {rank}. `{chunk.Path}` (repo: `{repoLabel}`, score: {score:F3})");
 
-                sb.AppendLine($"```{language}");
-                sb.AppendLine(chunk.Content);
-                sb.AppendLine("```");
-                sb.AppendLine();
+                if (!string.IsNullOrEmpty(language))
+                {
+                    sb.AppendLine($"```{language}");
+                    sb.AppendLine(contentForPrompt);
+                    sb.AppendLine("```");
+                }
+                else
+                {
+                    sb.AppendLine("```");
+                    sb.AppendLine(contentForPrompt);
+                    sb.AppendLine("```");
+                }
 
+                sb.AppendLine();
                 rank++;
             }
         }
@@ -78,4 +90,45 @@ public class MarkdownPromptFormatter : IPromptFormatter
 
         return sb.ToString();
     }
+
+    private static (string Language, string Content) PrepareContent(CodeChunk chunk)
+    {
+        var language = chunk.Language?.ToLowerInvariant() ?? string.Empty;
+        var content = chunk.Content ?? string.Empty;
+
+        if (string.Equals(language, "html", StringComparison.OrdinalIgnoreCase))
+        {
+            content = StripHtmlToText(content);
+            language = string.Empty;
+        }
+
+        if (content.Length > MaxSnippetChars)
+        {
+            content = content[..MaxSnippetChars] + "\n... (truncated)";
+        }
+
+        return (language, content);
+    }
+
+    private static string StripHtmlToText(string input)
+    {
+        if (string.IsNullOrEmpty(input))
+            return string.Empty;
+
+        var noTags = CollapseTagsRegex().Replace(input, string.Empty);
+
+        var decoded = WebUtility.HtmlDecode(noTags);
+
+        var normalized = CollapseWhitespaceRegex().Replace(decoded, " ");
+        normalized = CollapseEmptyLinesRegex().Replace(normalized, "\n\n");
+
+        return normalized.Trim();
+    }
+
+    [GeneratedRegex(@"\r?\n\s*\r?\n")]
+    private static partial Regex CollapseEmptyLinesRegex();
+    [GeneratedRegex(@"[ \t]+")]
+    private static partial Regex CollapseWhitespaceRegex();
+    [GeneratedRegex("<.*?>", RegexOptions.Singleline)]
+    private static partial Regex CollapseTagsRegex();
 }
