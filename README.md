@@ -178,6 +178,16 @@ Minorag is ideal for:
 
 ---
 
+## Triggering new release pipeline
+
+```bash
+VERSION=v0.1.5
+git tag -a ${VERSION} -m "Awesome release comment" 
+minorag % git push origin ${VERSION}
+```
+
+---
+
 ## License
 
 This project is licensed under the **Apache License 2.0**.
