@@ -3,7 +3,10 @@
         "Kurilo",
         "Minorag",
         "mxbai",
+        "NOLOGO",
         "nomic",
-        "Ollama"
+        "Ollama",
+        "OPTOUT",
+        "softprops"
     ]
 }
