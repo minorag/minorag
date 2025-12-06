@@ -1,4 +1,4 @@
-# Minorag — Local Codebase RAG for Developers
+# Minorag — Local Codebase RAG for Developers [![GitHub stars](https://img.shields.io/github/stars/minorag/minorag?style=social)](https://github.com/minorag/minorag/stargazers)
 
 Minorag is a lightweight, offline-friendly RAG CLI that indexes your codebase, computes embeddings locally (via Ollama), and lets you ask natural-language questions about your source code.
 
