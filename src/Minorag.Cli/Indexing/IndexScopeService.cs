@@ -24,15 +24,12 @@ public sealed class IndexScopeService(RagDbContext db) : IIndexScopeService
     {
         var normalizedRoot = repoRoot.FullName;
 
-        // 1. Resolve client (if provided)
         var client = await ResolveClientAsync(clientName, ct);
 
-        // 2. Resolve project (if provided; may create default client "Local")
         var projectResolution = await ResolveProjectAsync(projectName, client, ct);
         client ??= projectResolution.Client;
         var project = projectResolution.Project;
 
-        // 3. Resolve / create repo and handle reassignment prompt
         var repo = await EnsureRepositoryAsync(
             normalizedRoot,
             repoRoot.Name,
@@ -44,10 +41,6 @@ public sealed class IndexScopeService(RagDbContext db) : IIndexScopeService
 
         return repo;
     }
-
-    // ------------------------------------------------------------------
-    // Client / Project resolution
-    // ------------------------------------------------------------------
 
     private async Task<Client?> ResolveClientAsync(string? clientName, CancellationToken ct)
     {
@@ -78,7 +71,6 @@ public sealed class IndexScopeService(RagDbContext db) : IIndexScopeService
         return client;
     }
 
-    private sealed record ProjectResolution(Project? Project, Client? Client);
 
     private async Task<ProjectResolution> ResolveProjectAsync(
         string? projectName,
@@ -113,7 +105,6 @@ public sealed class IndexScopeService(RagDbContext db) : IIndexScopeService
         if (project is not null)
             return new ProjectResolution(project, owningClient);
 
-        // Need a client to attach this new project to
         owningClient ??= await EnsureDefaultClientAsync(ct);
 
         project = new Project
@@ -158,10 +149,6 @@ public sealed class IndexScopeService(RagDbContext db) : IIndexScopeService
 
         return client;
     }
-
-    // ------------------------------------------------------------------
-    // Repository resolution / reassignment
-    // ------------------------------------------------------------------
 
     private async Task<Repository> EnsureRepositoryAsync(
         string rootPath,
@@ -220,7 +207,8 @@ public sealed class IndexScopeService(RagDbContext db) : IIndexScopeService
 
         AnsiConsole.Markup(
             $"Reassign to project [blue]{Escape(desiredProject.Name)}[/] " +
-            $"(client [magenta]{Escape(newClientName)}[/])? [grey][y/N]:[/] ");
+            $"(client [magenta]{Escape(newClientName)}[/])? " +
+            "[grey][[y/N]]:[/] ");
 
         var answer = Console.ReadLine();
         if (!IsYes(answer))
@@ -237,10 +225,6 @@ public sealed class IndexScopeService(RagDbContext db) : IIndexScopeService
             $"[green]reassigned to project[/] [blue]{Escape(desiredProject.Name)}[/].");
     }
 
-    // ------------------------------------------------------------------
-    // Output helpers
-    // ------------------------------------------------------------------
-
     private static void PrintScopeSummary(Repository repo, Project? project, Client? client)
     {
         var repoPart = $"[cyan]{Escape(repo.Name)}[/] (id={repo.Id})";
@@ -254,10 +238,6 @@ public sealed class IndexScopeService(RagDbContext db) : IIndexScopeService
         AnsiConsole.MarkupLine(
             $"[grey]Scope:[/] repo {repoPart}, {projectPart}, {clientPart}");
     }
-
-    // ------------------------------------------------------------------
-    // Utility
-    // ------------------------------------------------------------------
 
     private static bool IsYes(string? input)
     {
@@ -296,4 +276,6 @@ public sealed class IndexScopeService(RagDbContext db) : IIndexScopeService
 
     private static string Escape(string? text)
         => text is null ? string.Empty : Markup.Escape(text);
+
+    private sealed record ProjectResolution(Project? Project, Client? Client);
 }
