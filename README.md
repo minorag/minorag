@@ -136,17 +136,35 @@ minorag ask "Where is the authentication handled?"
 minorag db-path
 ```
 
+## Generate a ChatGPT-ready prompt (NO local LLM call)
+
+This is ideal for pasting into ChatGPT, Claude, or any cloud LLM.
+
+```bash
+minorag prompt "How does the authentication middleware work?"
+```
+
+Copy to clipboard
+
+```bash
+minorag prompt "How does the authentication middleware work?" | pbcopy # Mac
+minorag prompt "How does the authentication middleware work?" | xclip -selection clipboard # Linux xclip
+minorag prompt "How does the authentication middleware work?" | xsel --clipboard --input # Linux xsel
+minorag prompt "How does the authentication middleware work?" | wl-copy # Linux wl-copy
+minorag prompt "How does the authentication middleware work?" | clip # Windows
+```
+
 ---
 
 # Why Minorag?
 
 | Feature | Minorag | VS Code Extensions | Cloud ChatGPT | Cody |
 |--------|---------|--------------------|----------------|------|
-| Fully local | ✔ | ✖ | ✖ | ✖ |
-| Offline | ✔ | ✖ | ✖ | ✖ |
-| Multi-repo RAG | ✔ | ✖ | ✖ | ✔ |
-| Customizable models | ✔ | ✖ | ✖ | ✖ |
-| No telemetry | ✔ | ✖ | ✖ | ✖ |
+| Fully local | ✅ | ❌ | ❌ | ❌ |
+| Offline | ✅ | ❌ | ❌ | ❌ |
+| Multi-repo RAG | ✅ | ❌ | ❌ | ✅ |
+| Customizable models | ✅ | ❌ | ❌ | ❌ |
+| No telemetry | ✅ | ❌ | ❌ | ❌ |
 
 Minorag is ideal for:
 

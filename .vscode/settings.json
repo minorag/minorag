@@ -11,6 +11,8 @@
         "pycache",
         "pytest",
         "softprops",
-        "svgz"
+        "svgz",
+        "xclip",
+        "xsel"
     ]
 }
