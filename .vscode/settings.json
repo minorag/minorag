@@ -1,5 +1,8 @@
 {
     "cSpell.words": [
+        "AUTOINCREMENT",
+        "buildtransitive",
+        "contentfiles",
         "Kurilo",
         "Minorag",
         "mxbai",
@@ -13,6 +16,7 @@
         "softprops",
         "svgz",
         "xclip",
-        "xsel"
+        "xsel",
+        "xunit"
     ]
 }

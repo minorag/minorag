@@ -34,7 +34,7 @@ jobs:
       - name: Test
         run: dotnet test ./src/Minorag.sln --configuration Release --no-build --verbosity normal
 
-      - name: Pack Minorag CLI (multi-target net8.0 + net10.0)
+      - name: Pack Minorag CLI
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
 
