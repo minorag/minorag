@@ -11,6 +11,7 @@ public interface ISqliteStore
     Task DeleteChunksForFileAsync(int repoId, string relativePath, CancellationToken ct);
     IAsyncEnumerable<CodeChunk> GetAllChunksAsync(bool verbose, CancellationToken ct);
 }
+
 public class SqliteStore(RagDbContext db) : ISqliteStore
 {
     public async Task<Repository> GetOrCreateRepositoryAsync(string repoRoot, CancellationToken ct)

@@ -35,7 +35,6 @@ public static class DependencyInjections
             client.BaseAddress = new Uri(host);
         });
 
-        // Core services
         services.AddScoped<ILlmClient, OllamaChatClient>();
         services.AddScoped<IEmbeddingProvider, OllamaEmbeddingProvider>();
         services.AddScoped<IIndexer, Indexer>();
@@ -43,8 +42,8 @@ public static class DependencyInjections
         services.AddScoped<ISearcher, Searcher>();
 
         services.AddSingleton<IPromptFormatter, MarkdownPromptFormatter>();
-        // Presenter can stay singleton (stateless, console-only)
         services.AddSingleton<IConsoleSearchPresenter, ConsoleSearchPresenter>();
+        services.AddScoped<IIndexScopeService, IndexScopeService>();
 
         return services;
     }
@@ -76,5 +75,6 @@ public static class DependencyInjections
 
         builder.Logging.AddFilter("Microsoft.EntityFrameworkCore.Database.Command", LogLevel.Warning);
         builder.Logging.AddFilter("Microsoft.EntityFrameworkCore.Model.Validation", LogLevel.Warning);
+        builder.Logging.AddFilter("Microsoft.EntityFrameworkCore.Migrations", LogLevel.Warning);
     }
 }

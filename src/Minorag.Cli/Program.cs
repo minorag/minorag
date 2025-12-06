@@ -7,6 +7,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Minorag.Cli.Models;
 using Microsoft.Extensions.Configuration;
+using Microsoft.EntityFrameworkCore;
+using Minorag.Cli.Models.Domain;
 
 // -----------------------------------------------------------------------------
 // Arguments & Options
@@ -26,7 +28,18 @@ var dbOption = new Option<FileInfo?>("--db")
 {
     Description = "Path to SQLite database file (default: ~/.minorag/index.db)"
 };
+
 dbOption.Aliases.Add("-d");
+
+var clientOption = new Option<string?>("--client")
+{
+    Description = "Client name to associate this repo with (e.g. 'Acme Corp')"
+};
+
+var projectOption = new Option<string?>("--project")
+{
+    Description = "Project name to associate this repo with (e.g. 'Minorag')"
+};
 
 var verboseOption = new Option<bool>("--verbose")
 {
@@ -50,6 +63,8 @@ var indexCommand = new Command("index")
 
 indexCommand.Add(repoArg);
 indexCommand.Add(dbOption);
+indexCommand.Add(clientOption);
+indexCommand.Add(projectOption);
 
 indexCommand.SetAction(async (parseResult, cancellationToken) =>
 {
@@ -59,13 +74,33 @@ indexCommand.SetAction(async (parseResult, cancellationToken) =>
     var dbFile = parseResult.GetValue(dbOption);
     var dbPath = dbFile?.FullName ?? RagEnvironment.GetDefaultDbPath();
 
+    var clientName = parseResult.GetValue(clientOption);
+    var projectName = parseResult.GetValue(projectOption);
+
     Console.WriteLine($"Indexing '{repoRoot.FullName}' → '{dbPath}'");
 
     using var host = BuildHost(dbPath);
     using var scope = host.Services.CreateScope();
 
     var dbContext = scope.ServiceProvider.GetRequiredService<RagDbContext>();
-    await dbContext.Database.EnsureCreatedAsync(cancellationToken);
+    await dbContext.Database.MigrateAsync(cancellationToken);
+
+    var scopeService = scope.ServiceProvider.GetRequiredService<IIndexScopeService>();
+
+    Repository repo;
+    try
+    {
+        repo = await scopeService.EnsureClientProjectRepoAsync(
+            repoRoot,
+            clientName,
+            projectName,
+            cancellationToken);
+    }
+    catch (OperationCanceledException)
+    {
+        Console.WriteLine("Aborting indexing. Repository mapping was not changed.");
+        return;
+    }
 
     var indexer = scope.ServiceProvider.GetRequiredService<IIndexer>();
     await indexer.IndexAsync(repoRoot.FullName, cancellationToken);
@@ -100,7 +135,6 @@ askCommand.SetAction(async (parseResult, cancellationToken) =>
     using var scope = host.Services.CreateScope();
 
     var dbContext = scope.ServiceProvider.GetRequiredService<RagDbContext>();
-    await dbContext.Database.EnsureCreatedAsync(cancellationToken);
 
     var searcher = scope.ServiceProvider.GetRequiredService<ISearcher>();
     var presenter = scope.ServiceProvider.GetRequiredService<IConsoleSearchPresenter>();
@@ -219,5 +253,13 @@ static IHost BuildHost(string dbPath)
         .RegisterServices()
         .RegisterDatabase(dbPath);
 
-    return builder.Build();
+    var host = builder.Build();
+
+    using (var scope = host.Services.CreateScope())
+    {
+        var db = scope.ServiceProvider.GetRequiredService<RagDbContext>();
+        db.Database.Migrate();
+    }
+
+    return host;
 }
