@@ -48,7 +48,7 @@ public class Indexer(ISqliteStore store, IEmbeddingProvider provider) : IIndexer
         "class", "wasm", "sqlite", "db", "bak",
 
         // Fonts
-        "ttf", "otf", "eot",
+        "ttf", "otf", "eot", "ttc",
 
         // Misc
         "lock", "bin"
