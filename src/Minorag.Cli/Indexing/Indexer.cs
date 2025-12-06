@@ -64,81 +64,105 @@ public class Indexer(ISqliteStore store, IEmbeddingProvider provider) : IIndexer
 
         AnsiConsole.MarkupLine(
             $"[cyan]Loading existing file hashes for repo:[/] [blue]{Escape(repository.RootPath)}[/]");
+
         var existingHashes = await store.GetFileHashesAsync(repository.Id, ct);
 
-        foreach (var file in EnumerateFiles(rootPath))
-        {
-            ct.ThrowIfCancellationRequested();
-
-            var ext = Path.GetExtension(file).TrimStart('.').ToLowerInvariant();
-            if (string.IsNullOrEmpty(ext) || BinaryExtensions.Contains(ext))
+        // Precompute candidate files (non-binary)
+        var allFiles = EnumerateFiles(rootPath)
+            .Where(file =>
             {
-                continue;
-            }
+                var ext = Path.GetExtension(file).TrimStart('.').ToLowerInvariant();
+                return !string.IsNullOrEmpty(ext) && !BinaryExtensions.Contains(ext);
+            })
+            .ToList();
 
-            var relPath = Path.GetRelativePath(rootPath, file);
+        AnsiConsole.MarkupLine($"[cyan]Found[/] [green]{allFiles.Count}[/] [cyan]candidate files to index.[/]");
 
-            var content = await File.ReadAllTextAsync(file, ct);
-            var fileHash = ComputeSha256(content);
-
-            if (existingHashes.TryGetValue(relPath, out var oldHash) &&
-                string.Equals(oldHash, fileHash, StringComparison.Ordinal))
+        // Progress bar for indexing
+        await AnsiConsole.Progress()
+            .AutoClear(false)
+            .Columns(
+                new TaskDescriptionColumn(),
+                new ProgressBarColumn(),
+                new PercentageColumn(),
+                new RemainingTimeColumn(),
+                new SpinnerColumn())
+            .StartAsync(async ctx =>
             {
-                // Unchanged
-                AnsiConsole.MarkupLine(
-                    $"[dim][grey]⚪ Unchanged, skipping:[/] {Escape(relPath)}[/]");
-                continue;
-            }
+                var task = ctx.AddTask("[white]Indexing files[/]", maxValue: allFiles.Count);
 
-            if (oldHash is null)
-            {
-                // New file
-                AnsiConsole.MarkupLine(
-                    $"[green]➕ New file, indexing:[/] [cyan]{Escape(relPath)}[/]");
-            }
-            else
-            {
-                // Changed file
-                AnsiConsole.MarkupLine(
-                    $"[yellow]♻ Changed file, re-indexing:[/] [cyan]{Escape(relPath)}[/]");
-            }
-
-            // Remove old chunks for this file+repo
-            await store.DeleteChunksForFileAsync(repository.Id, relPath, ct);
-
-            var chunkIndex = 0;
-
-            foreach (var chunkContent in ChunkContent(content, maxChars: 4000))
-            {
-                ct.ThrowIfCancellationRequested();
-
-                var chunk = new CodeChunk
+                foreach (var file in allFiles)
                 {
-                    RepositoryId = repository.Id,
-                    Path = relPath,
-                    Extension = ext,
-                    Language = GuessLanguage(ext),
-                    Kind = "file",
-                    SymbolName = null,
-                    Content = chunkContent,
-                    FileHash = fileHash,
-                    ChunkIndex = chunkIndex++
-                };
+                    ct.ThrowIfCancellationRequested();
 
-                try
-                {
-                    chunk.Embedding = await provider.EmbedAsync(chunk.Content, ct);
+                    var ext = Path.GetExtension(file).TrimStart('.').ToLowerInvariant();
+                    var relPath = Path.GetRelativePath(rootPath, file);
+
+                    var content = await File.ReadAllTextAsync(file, ct);
+                    var fileHash = ComputeSha256(content);
+
+                    if (existingHashes.TryGetValue(relPath, out var oldHash) &&
+                        string.Equals(oldHash, fileHash, StringComparison.Ordinal))
+                    {
+                        // Unchanged
+                        AnsiConsole.MarkupLine(
+                            $"[dim][grey]⚪ Unchanged, skipping:[/] {Escape(relPath)}[/]");
+                        task.Increment(1);
+                        continue;
+                    }
+
+                    if (oldHash is null)
+                    {
+                        // New file
+                        AnsiConsole.MarkupLine(
+                            $"[green]➕ New file, indexing:[/] [cyan]{Escape(relPath)}[/]");
+                    }
+                    else
+                    {
+                        // Changed file
+                        AnsiConsole.MarkupLine(
+                            $"[yellow]♻ Changed file, re-indexing:[/] [cyan]{Escape(relPath)}[/]");
+                    }
+
+                    // Remove old chunks for this file+repo
+                    await store.DeleteChunksForFileAsync(repository.Id, relPath, ct);
+
+                    var chunkIndex = 0;
+
+                    foreach (var chunkContent in ChunkContent(content, maxChars: 4000))
+                    {
+                        ct.ThrowIfCancellationRequested();
+
+                        var chunk = new CodeChunk
+                        {
+                            RepositoryId = repository.Id,
+                            Path = relPath,
+                            Extension = ext,
+                            Language = GuessLanguage(ext),
+                            Kind = "file",
+                            SymbolName = null,
+                            Content = chunkContent,
+                            FileHash = fileHash,
+                            ChunkIndex = chunkIndex++
+                        };
+
+                        try
+                        {
+                            chunk.Embedding = await provider.EmbedAsync(chunk.Content, ct);
+                        }
+                        catch (Exception ex)
+                        {
+                            AnsiConsole.MarkupLine(
+                                $"[yellow]⚠️  [bold]Failed to embed[/] [cyan]{Escape(chunk.Path)}[/]:[/] [red]{Escape(ex.Message)}[/]");
+                            continue;
+                        }
+
+                        await store.InsertChunkAsync(chunk, ct);
+                    }
+
+                    task.Increment(1);
                 }
-                catch (Exception ex)
-                {
-                    AnsiConsole.MarkupLine(
-                        $"[yellow]⚠️  [bold]Failed to embed[/] [cyan]{Escape(chunk.Path)}[/]:[/] [red]{Escape(ex.Message)}[/]");
-                    continue;
-                }
-
-                await store.InsertChunkAsync(chunk, ct);
-            }
-        }
+            });
     }
 
     private static IEnumerable<string> EnumerateFiles(string root)
