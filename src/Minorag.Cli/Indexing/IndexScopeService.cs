@@ -17,19 +17,22 @@ public interface IIndexScopeService
 public sealed class IndexScopeService(RagDbContext db) : IIndexScopeService
 {
     public async Task<Repository> EnsureClientProjectRepoAsync(
-        DirectoryInfo repoRoot,
-        string? clientName,
-        string? projectName,
-        CancellationToken ct)
+         DirectoryInfo repoRoot,
+         string? clientName,
+         string? projectName,
+         CancellationToken ct)
     {
         var normalizedRoot = repoRoot.FullName;
 
+        // 1. Resolve client (from CLI flag, if provided)
         var client = await ResolveClientAsync(clientName, ct);
 
+        // 2. Resolve project (may create default "Local" client)
         var projectResolution = await ResolveProjectAsync(projectName, client, ct);
         client ??= projectResolution.Client;
         var project = projectResolution.Project;
 
+        // 3. Resolve / create repo and handle reassignment
         var repo = await EnsureRepositoryAsync(
             normalizedRoot,
             repoRoot.Name,
@@ -37,7 +40,11 @@ public sealed class IndexScopeService(RagDbContext db) : IIndexScopeService
             client,
             ct);
 
-        PrintScopeSummary(repo, project, client);
+        // 4. Use the *actual* attached project/client for the summary
+        var actualProject = repo.Project ?? project;
+        var actualClient = repo.Project?.Client ?? client;
+
+        PrintScopeSummary(repo, actualProject, actualClient);
 
         return repo;
     }
