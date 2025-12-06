@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Minorag.Cli.Models;
 using Spectre.Console;
 
@@ -104,24 +105,177 @@ public class ConsoleSearchPresenter : IConsoleSearchPresenter
             return;
         }
 
+        var answer = result.Answer!;
         AnsiConsole.WriteLine();
+        AnsiConsole.MarkupLine("[grey]" + new string('=', 80) + "[/]");
+        AnsiConsole.MarkupLine("[bold yellow]Answer[/]");
         AnsiConsole.MarkupLine("[grey]" + new string('=', 80) + "[/]");
         AnsiConsole.WriteLine();
 
-        var safe = Markup.Escape(result.Answer!);
-        var panel = new Panel(new Markup(safe))
-        {
-            Header = new PanelHeader("[bold yellow]Answer[/]"),
-            Border = BoxBorder.Rounded,
-            Padding = new Padding(1, 1, 1, 1)
-        };
+        // Detect & render tables
+        if (TryRenderMarkdownTable(answer))
+            return;
 
-        AnsiConsole.Write(panel);
+        // fallback → regular formatting
+        var markup = MarkdownToSpectreMarkup(answer);
+        AnsiConsole.MarkupLine(markup);
         AnsiConsole.WriteLine();
     }
 
-    private static string EscapeMarkup(string text)
+    private static bool TryRenderMarkdownTable(string text)
     {
-        return text is null ? string.Empty : Markup.Escape(text);
+        var lines = text.Split('\n');
+
+        var tableLines = new List<string>();
+        var inTable = false;
+
+        foreach (var line in lines)
+        {
+            if (line.TrimStart().StartsWith("|"))
+            {
+                inTable = true;
+                tableLines.Add(line);
+            }
+            else if (inTable)
+            {
+                // first non-table line after table block → stop
+                break;
+            }
+        }
+
+        if (tableLines.Count < 2)
+            return false;
+
+        // Header row
+        var headerParts = tableLines[0]
+            .Trim()
+            .Trim('|')
+            .Split('|')
+            .Select(h => h.Trim())
+            .ToList();
+
+        // Data rows (skip header + separator row)
+        var rowLines = tableLines.Skip(2).ToList();
+        var rows = rowLines
+            .Select(row => row.Trim().Trim('|')
+                .Split('|')
+                .Select(c => c.Trim())
+                .ToList())
+            .ToList();
+
+        var table = new Table
+        {
+            Border = TableBorder.Rounded
+        };
+
+        // Headers (make sure they’re bold)
+        foreach (var head in headerParts)
+        {
+            var headerText = FormatTableCell(head, isHeader: true);
+            var column = new TableColumn(headerText)
+            {
+                Padding = new Padding(1, 0, 1, 0)
+            };
+            table.AddColumn(column);
+        }
+
+        // Rows
+        foreach (var row in rows)
+        {
+            var cells = row
+                .Concat(Enumerable.Repeat(string.Empty, headerParts.Count))
+                .Take(headerParts.Count)
+                .Select(c => FormatTableCell(c, isHeader: false))
+                .ToArray();
+
+            table.AddRow(cells);
+        }
+
+        AnsiConsole.Write(table);
+        AnsiConsole.WriteLine();
+        return true;
+    }
+
+    /// <summary>
+    /// Simple Markdown → Spectre markup for table cells:
+    /// - **bold**
+    /// - *italic*
+    /// - `code` (colored)
+    /// - <br> → newline
+    /// </summary>
+    private static string FormatTableCell(string text, bool isHeader)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return string.Empty;
+
+        var t = text.Replace("\r\n", "\n");
+
+        // HTML line breaks → real newlines
+        t = Regex.Replace(t, @"<br\s*/?>", "\n", RegexOptions.IgnoreCase);
+
+        // Inline code: `IOcrClient` → [cyan]IOcrClient[/]
+        t = Regex.Replace(t, "`([^`]+)`", "[cyan]$1[/]");
+
+        // Bold: **External service clients** → [bold]External service clients[/]
+        t = Regex.Replace(t, @"\*\*(.+?)\*\*", "[bold]$1[/]");
+
+        // Italic: *text* → [italic]text[/]
+        t = Regex.Replace(
+            t,
+            @"(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)",
+            "[italic]$1[/]"
+        );
+
+        // Make headers bold if they aren't already
+        if (isHeader && !t.Contains("[bold]"))
+        {
+            t = "[bold]" + t + "[/]";
+        }
+
+        return t;
+    }
+
+    private static string EscapeMarkup(string text)
+        => text is null ? string.Empty : Markup.Escape(text);
+
+    /// <summary>
+    /// Very small Markdown → Spectre markup converter.
+    /// Intentionally conservative: supports headings, **bold**, *italic*, inline code, and bullet points.
+    /// </summary>
+    private static string MarkdownToSpectreMarkup(string markdown)
+    {
+        if (string.IsNullOrWhiteSpace(markdown))
+        {
+            return string.Empty;
+        }
+
+        var text = markdown.Replace("\r\n", "\n");
+
+        // HTML line breaks → real newlines
+        text = Regex.Replace(text, @"<br\s*/?>", "\n", RegexOptions.IgnoreCase);
+
+        // Headings: #, ##, ### → bold/underline variants
+        text = Regex.Replace(text, @"^###\s+(.+)$", "[bold underline]$1[/]", RegexOptions.Multiline);
+        text = Regex.Replace(text, @"^##\s+(.+)$", "[bold underline]$1[/]", RegexOptions.Multiline);
+        text = Regex.Replace(text, @"^#\s+(.+)$", "[bold underline]$1[/]", RegexOptions.Multiline);
+
+        // Bold: **text** → [bold]text[/]
+        text = Regex.Replace(text, @"\*\*(.+?)\*\*", "[bold]$1[/]");
+
+        // Italic: *text* → [italic]text[/]
+        text = Regex.Replace(
+            text,
+            @"(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)",
+            "[italic]$1[/]"
+        );
+
+        // Inline code: `code`
+        text = Regex.Replace(text, "`([^`]+)`", "[grey]`$1`[/]");
+
+        // Bullet points: - foo / * foo → • foo
+        text = Regex.Replace(text, @"^(\s*)- ", "$1• ", RegexOptions.Multiline);
+        text = Regex.Replace(text, @"^(\s*)\* ", "$1• ", RegexOptions.Multiline);
+
+        return text;
     }
 }
