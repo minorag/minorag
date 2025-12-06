@@ -3,6 +3,7 @@ using System.Text;
 using Minorag.Cli.Models.Domain;
 using Minorag.Cli.Providers;
 using Minorag.Cli.Store;
+using Spectre.Console;
 
 namespace Minorag.Cli.Indexing;
 
@@ -61,7 +62,8 @@ public class Indexer(ISqliteStore store, IEmbeddingProvider provider) : IIndexer
         // Resolve / create repository row
         var repository = await store.GetOrCreateRepositoryAsync(rootPath, ct);
 
-        Console.WriteLine($"Loading existing file hashes for repo: {repository.RootPath}");
+        AnsiConsole.MarkupLine(
+            $"[cyan]Loading existing file hashes for repo:[/] [blue]{Escape(repository.RootPath)}[/]");
         var existingHashes = await store.GetFileHashesAsync(repository.Id, ct);
 
         foreach (var file in EnumerateFiles(rootPath))
@@ -82,13 +84,24 @@ public class Indexer(ISqliteStore store, IEmbeddingProvider provider) : IIndexer
             if (existingHashes.TryGetValue(relPath, out var oldHash) &&
                 string.Equals(oldHash, fileHash, StringComparison.Ordinal))
             {
-                Console.WriteLine($"Unchanged, skipping: {relPath}");
+                // Unchanged
+                AnsiConsole.MarkupLine(
+                    $"[dim][grey]⚪ Unchanged, skipping:[/] {Escape(relPath)}[/]");
                 continue;
             }
 
-            Console.WriteLine(oldHash is null
-                ? $"New file, indexing: {relPath}"
-                : $"Changed file, re-indexing: {relPath}");
+            if (oldHash is null)
+            {
+                // New file
+                AnsiConsole.MarkupLine(
+                    $"[green]➕ New file, indexing:[/] [cyan]{Escape(relPath)}[/]");
+            }
+            else
+            {
+                // Changed file
+                AnsiConsole.MarkupLine(
+                    $"[yellow]♻ Changed file, re-indexing:[/] [cyan]{Escape(relPath)}[/]");
+            }
 
             // Remove old chunks for this file+repo
             await store.DeleteChunksForFileAsync(repository.Id, relPath, ct);
@@ -118,9 +131,8 @@ public class Indexer(ISqliteStore store, IEmbeddingProvider provider) : IIndexer
                 }
                 catch (Exception ex)
                 {
-                    Console.ForegroundColor = ConsoleColor.Yellow;
-                    Console.WriteLine($"[WARN] Failed to embed {chunk.Path}: {ex.Message}");
-                    Console.ResetColor();
+                    AnsiConsole.MarkupLine(
+                        $"[yellow]⚠️  [bold]Failed to embed[/] [cyan]{Escape(chunk.Path)}[/]:[/] [red]{Escape(ex.Message)}[/]");
                     continue;
                 }
 
@@ -211,4 +223,7 @@ public class Indexer(ISqliteStore store, IEmbeddingProvider provider) : IIndexer
         "sh" or "bat" => "shell",
         _ => "text"
     };
+
+    private static string Escape(string text)
+        => text is null ? string.Empty : Markup.Escape(text);
 }
