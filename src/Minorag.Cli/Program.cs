@@ -83,7 +83,6 @@ indexCommand.SetAction(async (parseResult, cancellationToken) =>
     using var scope = host.Services.CreateScope();
 
     var dbContext = scope.ServiceProvider.GetRequiredService<RagDbContext>();
-    await dbContext.Database.MigrateAsync(cancellationToken);
 
     var scopeService = scope.ServiceProvider.GetRequiredService<IIndexScopeService>();
 
