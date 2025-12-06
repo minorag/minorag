@@ -27,6 +27,6 @@ public static class RagEnvironment
         var ragDir = Path.Combine(home, ".minorag");
         Directory.CreateDirectory(ragDir);
 
-        return Path.Combine(ragDir, "index.db");
+        return Path.GetFullPath(Path.Combine(ragDir, "index.db"));
     }
 }

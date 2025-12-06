@@ -10,6 +10,28 @@
                 "${workspaceFolder}/src/Minorag.Cli/Minorag.Cli.csproj"
             ],
             "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "Add EF Migration",
+            "type": "shell",
+            "command": "dotnet",
+            "args": [
+                "ef",
+                "migrations",
+                "add",
+                "${input:migrationName}"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/src/Minorag.Cli"
+            }
+        }
+    ],
+    "inputs": [
+        {
+            "id": "migrationName",
+            "type": "promptString",
+            "description": "Enter EF migration name (no spaces, e.g. AddedClientsAndProjects)",
+            "default": "NewMigration"
         }
     ]
 }

@@ -9,9 +9,48 @@ public class RagDbContext(DbContextOptions<RagDbContext> options) : DbContext(op
 {
     public DbSet<CodeChunk> Chunks => Set<CodeChunk>();
     public DbSet<Repository> Repositories => Set<Repository>();
+    // public DbSet<Client> Clients => Set<Client>();
+    // public DbSet<Project> Projects => Set<Project>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        // var client = modelBuilder.Entity<Client>();
+
+        // client.ToTable("clients");
+
+        // client.HasKey(r => r.Id);
+
+        // client.Property(r => r.Name)
+        //     .IsRequired()
+        //     .HasColumnName("name");
+
+        // client.Property(r => r.Slug)
+        //     .IsRequired()
+        //     .HasColumnName("slug");
+
+        // var project = modelBuilder.Entity<Project>();
+
+        // project.ToTable("projects");
+
+        // project.HasKey(r => r.Id);
+
+        // project.Property(r => r.Name)
+        //     .IsRequired()
+        //     .HasColumnName("name");
+
+        // project.Property(r => r.Slug)
+        //     .IsRequired()
+        //     .HasColumnName("slug");
+
+        // project.Property(r => r.ClientId)
+        //     .IsRequired()
+        //     .HasColumnName("client_id");
+
+        // project
+        //     .HasOne(x => x.Client)
+        //     .WithMany(x => x.Projects)
+        //     .HasForeignKey(x => x.ClientId);
+
         var repo = modelBuilder.Entity<Repository>();
 
         repo.ToTable("repositories");
@@ -25,9 +64,17 @@ public class RagDbContext(DbContextOptions<RagDbContext> options) : DbContext(op
         repo.HasIndex(r => r.RootPath)
             .IsUnique();
 
+        // repo.Property(r => r.ProjectId)
+        //            .IsRequired()
+        //            .HasColumnName("project_id");
+
         repo.Property(r => r.Name)
             .IsRequired()
             .HasColumnName("name");
+
+        // repo.HasOne(x => x.Project)
+        //     .WithMany(x => x.Repositories)
+        //     .HasForeignKey(x => x.ProjectId);
 
         var chunk = modelBuilder.Entity<CodeChunk>();
 

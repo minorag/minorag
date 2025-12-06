@@ -2,8 +2,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
 
-    <!-- Was: <TargetFramework>net10.0</TargetFramework> -->
-    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <TargetFramework>net8.0</TargetFramework>
 
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
@@ -15,16 +14,26 @@
     <PackageId>Minorag.Cli</PackageId>
 
     <Version>0.1.13</Version>
-
     <Authors>Andrei Kurilo</Authors>
     <Description>Minorag codebase RAG CLI</Description>
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- EF Core runtime + provider -->
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.22" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.22" />
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.0" />
+
+    <!-- EF Core design-time tools -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.22">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+
+    <!-- Hosting / HTTP -->
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="8.0.1" />
+
+    <!-- Framework-agnostic packages -->
     <PackageReference Include="Spectre.Console" Version="0.54.0" />
     <PackageReference Include="Spectre.Console.Next.Markdown" Version="0.1.0" />
     <PackageReference Include="System.CommandLine" Version="2.0.0" />
@@ -37,9 +46,5 @@
     <Content Include="appsettings.local.json" Condition="Exists('appsettings.local.json')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Remove="test.md" />
   </ItemGroup>
 </Project>
