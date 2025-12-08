@@ -34,7 +34,7 @@ jobs:
       - name: Test
         run: dotnet test ./src/Minorag.sln --configuration Release --no-build --verbosity normal
 
-      - name: Pack Minorag CLI
+      - name: Pack Minorag CLI (NuGet tool)
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
 
@@ -45,9 +45,40 @@ jobs:
             -o ./artifacts \
             /p:Version="$VERSION"
 
+      - name: Publish self-contained binaries
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+
+          RIDS=("win-x64" "linux-x64" "osx-x64" "osx-arm64")
+          for rid in "${RIDS[@]}"; do
+            echo "Publishing self-contained for $rid"
+
+            dotnet publish ./src/Minorag.Cli/Minorag.Cli.csproj \
+              -c Release \
+              -r "$rid" \
+              --self-contained true \
+              /p:PublishSingleFile=true \
+              /p:IncludeNativeLibrariesForSelfExtract=true \
+              /p:DebugType=none \
+              /p:Version="$VERSION" \
+              -o "./artifacts/minorag-$rid"
+
+            # Optional: create nicer archive names
+            pushd ./artifacts
+            if [[ "$rid" == win-* ]]; then
+              zip "minorag-$rid.zip" "minorag-$rid/minorag.exe"
+            else
+              tar -czf "minorag-$rid.tar.gz" -C "minorag-$rid" minorag
+            fi
+            popd
+          done
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: ./artifacts/*.nupkg
+          files: |
+            ./artifacts/*.nupkg
+            ./artifacts/minorag-*.zip
+            ./artifacts/minorag-*.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
