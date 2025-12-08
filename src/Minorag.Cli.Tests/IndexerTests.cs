@@ -237,6 +237,7 @@ public class IndexerTests
         // Not used by Indexer, but required by ISqliteStore
         public async IAsyncEnumerable<CodeChunk> GetAllChunksAsync(
             bool verbose,
+            List<int>? repositoryIds,
             [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
         {
             foreach (var chunk in InsertedChunks)

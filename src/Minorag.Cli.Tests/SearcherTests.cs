@@ -190,6 +190,7 @@ public class SearcherTests
 
         public async IAsyncEnumerable<CodeChunk> GetAllChunksAsync(
             bool verbose,
+            List<int>? repositoryIds,
             [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
         {
             foreach (var chunk in Chunks)

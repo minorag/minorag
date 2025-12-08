@@ -4,6 +4,24 @@ namespace Minorag.Cli.Cli;
 
 public static class CliOptions
 {
+    public static readonly Option<string[]> RepoNameOption =
+        new("--repo")
+        {
+            Description = "Limit search to one or more repository *names* (can be repeated)."
+        };
+
+    public static readonly Option<string?> RepoNamesCsvOption =
+        new("--repos")
+        {
+            Description = "Comma-separated list of repository names to scope the search to."
+        };
+
+    public static readonly Option<bool> AllReposOption =
+        new("--all-repos")
+        {
+            Description = "Search across all indexed repositories (explicit opt-in)."
+        };
+
     public static readonly Option<int?> TopKOption =
         new("--top-k")
         {

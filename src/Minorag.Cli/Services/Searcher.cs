@@ -10,6 +10,7 @@ public interface ISearcher
     Task<SearchContext> RetrieveAsync(
         string question,
         bool verbose,
+        List<int>? repositoryIds = null,
         int topK = 7,
         CancellationToken ct = default);
 
@@ -27,6 +28,7 @@ public class Searcher(
     public async Task<SearchContext> RetrieveAsync(
         string question,
         bool verbose,
+        List<int>? repositoryIds = null,
         int topK = 7,
         CancellationToken ct = default)
     {
@@ -41,7 +43,7 @@ public class Searcher(
         // 2. Score all chunks by cosine similarity
         var scored = new List<(CodeChunk Chunk, float Score)>();
 
-        await foreach (var chunk in store.GetAllChunksAsync(verbose, ct))
+        await foreach (var chunk in store.GetAllChunksAsync(verbose, repositoryIds, ct))
         {
             if (chunk.Embedding.Length == 0)
                 continue;
