@@ -60,8 +60,6 @@ public class ScopeResolverTests
         Assert.Contains(scoped, r => r.Name == "worker-service");
     }
 
-
-
     [Fact]
     public async Task ExplicitRepoNames_UsesUnionOfRepoAndReposCsv()
     {
@@ -250,10 +248,6 @@ public class ScopeResolverTests
         Assert.Contains("No active repository detected for current directory", ex.Message);
         Assert.Contains("Please specify scope explicitly", ex.Message);
     }
-
-    // ---------------------------------------------------------------------
-    // Helpers
-    // ---------------------------------------------------------------------
 
     private static string CreateTempDir(string name)
     {
