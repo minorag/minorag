@@ -62,15 +62,16 @@ jobs:
               /p:DebugType=none \
               /p:Version="$VERSION" \
               -o "./artifacts/minorag-$rid"
+          done
 
-            # Optional: create nicer archive names
-            pushd ./artifacts
+          cd ./artifacts
+
+          for rid in "${RIDS[@]}"; do
             if [[ "$rid" == win-* ]]; then
-              zip "minorag-$rid.zip" "minorag-$rid/minorag.exe"
+              zip -r "minorag-$rid.zip" "minorag-$rid"
             else
-              tar -czf "minorag-$rid.tar.gz" -C "minorag-$rid" minorag
+              tar -czf "minorag-$rid.tar.gz" "minorag-$rid"
             fi
-            popd
           done
 
       - name: Create GitHub Release
