@@ -246,6 +246,12 @@ public class IndexerTests
                 await Task.Yield();
             }
         }
+
+        public Task SetRepositoryLastIndexDate(int repoId, CancellationToken ct)
+        {
+            Repository.LastIndexedAt = DateTime.UtcNow;
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class FakeEmbeddingProvider : IEmbeddingProvider

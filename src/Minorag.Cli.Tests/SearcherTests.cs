@@ -214,6 +214,11 @@ public class SearcherTests
         {
             throw new NotImplementedException();
         }
+
+        public Task SetRepositoryLastIndexDate(int repoId, CancellationToken ct)
+        {
+            throw new NotImplementedException();
+        }
     }
 
     private sealed class FakeEmbeddingProvider : IEmbeddingProvider
