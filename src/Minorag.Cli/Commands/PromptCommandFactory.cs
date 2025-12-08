@@ -20,6 +20,8 @@ public static class PromptCommandFactory
         };
 
         cmd.Add(CliOptions.QuestionArgument);
+        cmd.Add(CliOptions.ClientOption);
+        cmd.Add(CliOptions.ProjectOption);
         cmd.Add(CliOptions.DbOption);
         cmd.Add(CliOptions.TopKOption);
         cmd.Add(CliOptions.RepoNameOption);

@@ -23,6 +23,8 @@ public static class AskCommandFactory
         cmd.Add(CliOptions.QuestionArgument);
         cmd.Add(CliOptions.RepoNameOption);
         cmd.Add(CliOptions.RepoNamesCsvOption);
+        cmd.Add(CliOptions.ClientOption);
+        cmd.Add(CliOptions.ProjectOption);
         cmd.Add(CliOptions.DbOption);
         cmd.Add(CliOptions.VerboseOption);
         cmd.Add(CliOptions.NoLlmOption);

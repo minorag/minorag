@@ -32,6 +32,7 @@ public static class RootCommandFactory
         root.Add(PromptCommandFactory.Create());
         root.Add(ConfigCommandFactory.Create());
         root.Add(ReposCommandFactory.Create());
+        root.Add(VersionCommandFactory.Create());
 
         return root;
     }
