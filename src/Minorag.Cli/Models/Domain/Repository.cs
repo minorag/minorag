@@ -12,6 +12,8 @@ public class Repository
 
     public string Name { get; set; } = default!;
 
+    public DateTime? LastIndexedAt { get; set; }
+
     public virtual Project Project { get; set; }
 
     public virtual ICollection<CodeChunk> Chunks { get; set; } = [];
