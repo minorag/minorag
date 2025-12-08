@@ -1,7 +1,9 @@
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.Extensions.Options;
 using Minorag.Cli.Indexing;
 using Minorag.Cli.Models.Domain;
+using Minorag.Cli.Models.Options;
 using Minorag.Cli.Providers;
 using Minorag.Cli.Store;
 
@@ -36,8 +38,8 @@ public class IndexerTests
             EmbeddingToReturn = [1f, 0f]
         };
 
-        // No existing hashes → everything is considered "new"
-        var indexer = new Indexer(store, embeddingProvider);
+        var ragOptions = Options.Create(new RagOptions());
+        var indexer = new Indexer(store, embeddingProvider, ragOptions);
 
         // Act
         await indexer.IndexAsync(root.FullName, CancellationToken.None);
@@ -75,7 +77,8 @@ public class IndexerTests
             EmbeddingToReturn = [1f, 0f]
         };
 
-        var indexer = new Indexer(store, embeddingProvider);
+        var ragOptions = Options.Create(new RagOptions());
+        var indexer = new Indexer(store, embeddingProvider, ragOptions);
 
         // Act
         await indexer.IndexAsync(root.FullName, CancellationToken.None);
@@ -105,7 +108,8 @@ public class IndexerTests
             EmbeddingToReturn = [1f, 0f]
         };
 
-        var indexer = new Indexer(store, embeddingProvider);
+        var ragOptions = Options.Create(new RagOptions());
+        var indexer = new Indexer(store, embeddingProvider, ragOptions);
 
         // Act
         await indexer.IndexAsync(root.FullName, CancellationToken.None);
@@ -129,7 +133,8 @@ public class IndexerTests
         var root = CreateTempDir("indexer_large_file");
         var filePath = Path.Combine(root.FullName, "big.cs");
 
-        // Two ~3900-char lines -> should result in 2 chunks with maxChars = 4000
+        // Two ~3900-char lines -> with default MaxChunkSize (currently 2000),
+        // this will result in multiple chunks.
         var line1 = new string('a', 3900);
         var line2 = new string('b', 3900);
         var content = line1 + "\n" + line2;
@@ -141,7 +146,8 @@ public class IndexerTests
             EmbeddingToReturn = [1f, 0f, 0f]
         };
 
-        var indexer = new Indexer(store, embeddingProvider);
+        var ragOptions = Options.Create(new RagOptions());
+        var indexer = new Indexer(store, embeddingProvider, ragOptions);
 
         // Act
         await indexer.IndexAsync(root.FullName, CancellationToken.None);

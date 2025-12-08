@@ -1,7 +1,7 @@
 using System.Text;
 using Microsoft.Extensions.Options;
-using Minorag.Cli.Models;
 using Minorag.Cli.Models.Domain;
+using Minorag.Cli.Models.Options;
 
 namespace Minorag.Cli.Providers;
 

@@ -1,6 +1,8 @@
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.Extensions.Options;
 using Minorag.Cli.Models.Domain;
+using Minorag.Cli.Models.Options;
 using Minorag.Cli.Providers;
 using Minorag.Cli.Store;
 using Spectre.Console;
@@ -12,7 +14,10 @@ public interface IIndexer
     Task IndexAsync(string rootPath, CancellationToken ct);
 }
 
-public class Indexer(ISqliteStore store, IEmbeddingProvider provider) : IIndexer
+public class Indexer(
+    ISqliteStore store,
+    IEmbeddingProvider provider,
+    IOptions<RagOptions> ragOptions) : IIndexer
 {
     private static readonly HashSet<string> ExcludedDirs = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -124,12 +129,11 @@ public class Indexer(ISqliteStore store, IEmbeddingProvider provider) : IIndexer
                             $"[yellow]♻ Changed file, re-indexing:[/] [cyan]{Escape(relPath)}[/]");
                     }
 
-                    // Remove old chunks for this file+repo
                     await store.DeleteChunksForFileAsync(repository.Id, relPath, ct);
 
                     var chunkIndex = 0;
 
-                    foreach (var chunkContent in ChunkContent(content, maxChars: 4000))
+                    foreach (var chunkContent in ChunkContent(content, maxChars: ragOptions.Value.MaxChunkSize))
                     {
                         ct.ThrowIfCancellationRequested();
 
@@ -224,10 +228,9 @@ public class Indexer(ISqliteStore store, IEmbeddingProvider provider) : IIndexer
 
     private static string ComputeSha256(string content)
     {
-        using var sha = SHA256.Create();
         var bytes = Encoding.UTF8.GetBytes(content);
-        var hashBytes = sha.ComputeHash(bytes);
-        return Convert.ToHexString(hashBytes); // uppercase hex
+        var hashBytes = SHA256.HashData(bytes);
+        return Convert.ToHexString(hashBytes);
     }
 
     private static string GuessLanguage(string ext) => ext switch

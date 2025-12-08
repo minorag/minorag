@@ -1,4 +1,4 @@
-namespace Minorag.Cli.Models;
+namespace Minorag.Cli.Models.Options;
 
 public sealed record DatabaseOptions
 {

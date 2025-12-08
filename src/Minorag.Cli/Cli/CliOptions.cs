@@ -4,6 +4,12 @@ namespace Minorag.Cli.Cli;
 
 public static class CliOptions
 {
+    public static readonly Option<int?> TopKOption =
+        new("--top-k")
+        {
+            Description = "Override default number of retrieved chunks (Top-K)."
+        };
+
     public static readonly Option<DirectoryInfo> RepoOption =
         new("--repo")
         {
@@ -50,5 +56,6 @@ public static class CliOptions
     {
         DbOption.Aliases.Add("-d");
         VerboseOption.Aliases.Add("-v");
+        TopKOption.Aliases.Add("-k");
     }
 }

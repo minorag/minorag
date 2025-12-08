@@ -30,6 +30,7 @@ public static class RootCommandFactory
         root.Add(IndexCommandFactory.Create());
         root.Add(AskCommandFactory.Create());
         root.Add(PromptCommandFactory.Create());
+        root.Add(ConfigCommandFactory.Create());
 
         return root;
     }
