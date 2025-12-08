@@ -6,6 +6,9 @@ namespace Minorag.Cli.Tests;
 
 public class ScopeResolverTests
 {
+    private static readonly string[] expected = ["api", "ui"];
+    private static readonly string[] expectedArray = ["api", "worker"];
+
     [Fact]
     public async Task NoRepositories_ThrowsHelpfulError()
     {
@@ -57,10 +60,7 @@ public class ScopeResolverTests
         Assert.Contains(scoped, r => r.Name == "worker-service");
     }
 
-    private static readonly string[] expected = ["api", "ui"];
-    private static readonly string[] expectedArray = ["api", "worker"];
-    private static readonly string[] expectedArray0 = ["api", "worker"];
-    private static readonly string[] expectedArray1 = new[] { "api", "worker" };
+
 
     [Fact]
     public async Task ExplicitRepoNames_UsesUnionOfRepoAndReposCsv()
@@ -154,7 +154,7 @@ public class ScopeResolverTests
             ct: CancellationToken.None);
 
         var names = scoped.Select(r => r.Name).OrderBy(n => n).ToArray();
-        Assert.Equal(expectedArray0, names);
+        Assert.Equal(expectedArray, names);
     }
 
     [Fact]
@@ -193,7 +193,7 @@ public class ScopeResolverTests
             ct: CancellationToken.None);
 
         var names = scoped.Select(r => r.Name).OrderBy(n => n).ToArray();
-        Assert.Equal(expectedArray1, names);
+        Assert.Equal(expectedArray, names);
     }
 
     [Fact]
