@@ -8,7 +8,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
-using Minorag.Cli.Models;
+using Minorag.Cli.Models.Options;
 
 namespace Minorag.Cli.Configuration;
 
@@ -18,6 +18,7 @@ public static class DependencyInjections
     {
         services.Configure<OllamaOptions>(configuration.GetSection("Ollama"));
         services.Configure<DatabaseOptions>(configuration.GetSection("Database"));
+        services.Configure<RagOptions>(configuration.GetSection("Rag"));
         return services;
     }
 

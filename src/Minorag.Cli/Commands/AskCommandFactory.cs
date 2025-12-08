@@ -1,8 +1,10 @@
 using System.CommandLine;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Minorag.Cli.Cli;
 using Minorag.Cli.Hosting;
 using Minorag.Cli.Models;
+using Minorag.Cli.Models.Options;
 using Minorag.Cli.Services;
 using Minorag.Cli.Store;
 
@@ -38,8 +40,13 @@ public static class AskCommandFactory
 
             var searcher = scope.ServiceProvider.GetRequiredService<ISearcher>();
             var presenter = scope.ServiceProvider.GetRequiredService<IConsoleSearchPresenter>();
+            var ragOptions = scope.ServiceProvider.GetRequiredService<IOptions<RagOptions>>();
 
-            var context = await searcher.RetrieveAsync(question, verbose, topK: 7, ct: cancellationToken);
+            var topKOverride = parseResult.GetValue(CliOptions.TopKOption);
+            var effectiveTopK = topKOverride ?? ragOptions.Value.TopK;
+
+            var context = await searcher.RetrieveAsync(question, verbose, topK: effectiveTopK, ct: cancellationToken);
+
             presenter.PresentRetrieval(context, verbose);
 
             if (!noLlm && context.HasResults)

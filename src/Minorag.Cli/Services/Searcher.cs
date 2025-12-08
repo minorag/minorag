@@ -55,7 +55,7 @@ public class Searcher(
 
         if (scored.Count == 0)
         {
-            return new SearchContext(question, Array.Empty<ScoredChunk>());
+            return new SearchContext(question, []);
         }
 
         var top = scored
