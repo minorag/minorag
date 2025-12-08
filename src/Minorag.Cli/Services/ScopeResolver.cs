@@ -16,122 +16,204 @@ public sealed class ScopeResolver(RagDbContext db)
         bool allReposFlag,               // from --all-repos
         CancellationToken ct)
     {
-        // Load all repos with project + client for in-memory filtering
-        var allRepos = await db.Repositories
-            .Include(r => r.Project)
-            .ThenInclude(p => p.Client)
-            .ToListAsync(ct);
+        var allRepos = await LoadRepositoriesAsync(ct);
 
-        // No repos at all → special error
+        // 1. no repos at all
+        EnsureAnyRepositories(allRepos);
+
+        // 2. explicit all-repos
+        if (allReposFlag)
+        {
+            PrintAllReposScope();
+            return allRepos;
+        }
+
+        // 3. explicit repo list: --repo / --repos
+        var explicitRepoNames = BuildExplicitRepoNameSet(repoNames, reposCsv);
+        var explicitScope = TryResolveExplicitRepos(explicitRepoNames, allRepos);
+        if (explicitScope is not null)
+        {
+            return explicitScope;
+        }
+
+        // 4. project scope: --project
+        var projectScope = TryResolveProjectScope(projectName, allRepos);
+        if (projectScope is not null)
+        {
+            return projectScope;
+        }
+
+        // 5. client scope: --client
+        var clientScope = TryResolveClientScope(clientName, allRepos);
+        if (clientScope is not null)
+        {
+            return clientScope;
+        }
+
+        // 6. infer from current directory (or throw with guidance)
+        return ResolveFromCurrentDirectory(currentDirectory, allRepos);
+    }
+
+    // ------------------------------------------------------------
+    // Top-level helpers
+    // ------------------------------------------------------------
+
+    private static void EnsureAnyRepositories(List<Repository> allRepos)
+    {
         if (allRepos.Count == 0)
         {
             throw new InvalidOperationException(
                 "No repositories found in the index. Run `minorag index` inside a project folder first.");
         }
+    }
 
-        if (allReposFlag)
-        {
-            AnsiConsole.MarkupLine("[cyan]Using scope:[/] [green]all repositories[/].");
-            return allRepos;
-        }
+    private void PrintAllReposScope()
+    {
+        AnsiConsole.MarkupLine("[cyan]Using scope:[/] [green]all repositories[/].");
+    }
 
-        var explicitRepoNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    private static HashSet<string> BuildExplicitRepoNameSet(
+        IReadOnlyList<string> repoNames,
+        string? reposCsv)
+    {
+        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        // --repo (repeatable)
         foreach (var name in repoNames.Where(n => !string.IsNullOrWhiteSpace(n)))
         {
-            explicitRepoNames.Add(name.Trim());
+            set.Add(name.Trim());
         }
 
+        // --repos (csv)
         if (!string.IsNullOrWhiteSpace(reposCsv))
         {
-            var parts = reposCsv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            var parts = reposCsv.Split(
+                ',',
+                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
             foreach (var p in parts)
             {
-                explicitRepoNames.Add(p);
+                set.Add(p);
             }
         }
 
-        if (explicitRepoNames.Count > 0)
+        return set;
+    }
+
+    private async Task<List<Repository>> LoadRepositoriesAsync(CancellationToken ct)
+    {
+        return await db.Repositories
+            .Include(r => r.Project)
+            .ThenInclude(p => p.Client)
+            .ToListAsync(ct);
+    }
+
+    // ------------------------------------------------------------
+    // Resolution strategies (repo / project / client / cwd)
+    // ------------------------------------------------------------
+    private static IReadOnlyList<Repository>? TryResolveExplicitRepos(
+        HashSet<string> explicitRepoNames,
+        List<Repository> allRepos)
+    {
+        if (explicitRepoNames.Count == 0)
+            return null;
+
+        var scoped = allRepos
+            .Where(r => explicitRepoNames.Contains(r.Name))
+            .ToList();
+
+        var missing = explicitRepoNames
+            .Except(scoped.Select(r => r.Name), StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (missing.Count > 0)
         {
-            var scoped = allRepos
-                .Where(r => explicitRepoNames.Contains(r.Name))
-                .ToList();
-
-            var missing = explicitRepoNames
-                .Except(scoped.Select(r => r.Name), StringComparer.OrdinalIgnoreCase)
-                .ToList();
-
-            if (missing.Count > 0)
-            {
-                AnsiConsole.MarkupLine(
-                    "[yellow]Warning:[/] some repositories were not found in the index: [red]{0}[/]",
-                    string.Join(", ", missing));
-            }
-
-            if (scoped.Count == 0)
-            {
-                throw new InvalidOperationException(
-                    "No matching repositories found for the provided --repo / --repos values.");
-            }
-
             AnsiConsole.MarkupLine(
-                "[cyan]Using explicit repository scope:[/] {0}",
-                string.Join(", ", scoped.Select(r => r.Name)));
-
-            return scoped;
+                "[yellow]Warning:[/] some repositories were not found in the index: [red]{0}[/]",
+                string.Join(", ", missing));
         }
 
-        if (!string.IsNullOrWhiteSpace(projectName))
+        if (scoped.Count == 0)
         {
-            var name = projectName.Trim();
-
-            var scoped = allRepos
-                .Where(r => r.Project != null &&
-                            string.Equals(r.Project.Name, name, StringComparison.OrdinalIgnoreCase))
-                .ToList();
-
-            if (scoped.Count == 0)
-            {
-                throw new InvalidOperationException(
-                    $"No repositories found for project \"{name}\".");
-            }
-
-            var client = scoped.First().Project!.Client?.Name ?? "-";
-            AnsiConsole.MarkupLine(
-                "[cyan]Using project scope:[/] Client=\"{0}\", Project=\"{1}\" (repos: {2})",
-                client,
-                name,
-                string.Join(", ", scoped.Select(r => r.Name)));
-
-            return scoped;
+            throw new InvalidOperationException(
+                "No matching repositories found for the provided --repo / --repos values.");
         }
 
-        if (!string.IsNullOrWhiteSpace(clientName))
+        AnsiConsole.MarkupLine(
+            "[cyan]Using explicit repository scope:[/] {0}",
+            string.Join(", ", scoped.Select(r => r.Name)));
+
+        return scoped;
+    }
+
+    private static IReadOnlyList<Repository>? TryResolveProjectScope(
+        string? projectName,
+        List<Repository> allRepos)
+    {
+        if (string.IsNullOrWhiteSpace(projectName))
+            return null;
+
+        var name = projectName.Trim();
+
+        var scoped = allRepos
+            .Where(r => r.Project != null &&
+                        string.Equals(r.Project.Name, name, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (scoped.Count == 0)
         {
-            var name = clientName.Trim();
-            var scoped = allRepos
-                .Where(r => r.Project?.Client != null &&
-                            string.Equals(r.Project.Client.Name, name, StringComparison.OrdinalIgnoreCase))
-                .ToList();
-
-            if (scoped.Count == 0)
-            {
-                throw new InvalidOperationException(
-                    $"No repositories found for client \"{name}\".");
-            }
-
-            AnsiConsole.MarkupLine(
-                "[cyan]Using client scope:[/] Client=\"{0}\" (repos: {1})",
-                name,
-                string.Join(", ", scoped.Select(r => r.Name)));
-
-            return scoped;
+            throw new InvalidOperationException(
+                $"No repositories found for project \"{name}\".");
         }
 
-        // 5. No explicit flags → infer from current working directory
+        var client = scoped.First().Project!.Client?.Name ?? "-";
+
+        AnsiConsole.MarkupLine(
+            "[cyan]Using project scope:[/] Client=\"{0}\", Project=\"{1}\" (repos: {2})",
+            client,
+            name,
+            string.Join(", ", scoped.Select(r => r.Name)));
+
+        return scoped;
+    }
+
+    private static IReadOnlyList<Repository>? TryResolveClientScope(
+        string? clientName,
+        List<Repository> allRepos)
+    {
+        if (string.IsNullOrWhiteSpace(clientName))
+            return null;
+
+        var name = clientName.Trim();
+
+        var scoped = allRepos
+            .Where(r => r.Project?.Client != null &&
+                        string.Equals(r.Project.Client.Name, name, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (scoped.Count == 0)
+        {
+            throw new InvalidOperationException(
+                $"No repositories found for client \"{name}\".");
+        }
+
+        AnsiConsole.MarkupLine(
+            "[cyan]Using client scope:[/] Client=\"{0}\" (repos: {1})",
+            name,
+            string.Join(", ", scoped.Select(r => r.Name)));
+
+        return scoped;
+    }
+
+    private static IReadOnlyList<Repository> ResolveFromCurrentDirectory(
+        string currentDirectory,
+        List<Repository> allRepos)
+    {
         var activeRepo = FindActiveRepository(currentDirectory, allRepos);
 
         if (activeRepo is not null)
         {
+            // Repo is attached to a project → use project scope
             if (activeRepo.ProjectId is not null)
             {
                 var sameProject = allRepos
@@ -150,14 +232,16 @@ public sealed class ScopeResolver(RagDbContext db)
                 return sameProject;
             }
 
+            // Repo has no project → just this one
             AnsiConsole.MarkupLine(
                 "[cyan]Using repository scope:[/] Repo=\"{0}\" at [grey]{1}[/]",
                 activeRepo.Name,
                 activeRepo.RootPath);
 
-            return [activeRepo];
+            return new[] { activeRepo };
         }
 
+        // No flags + no active repo → force explicit scope with guidance
         var cwd = Path.GetFullPath(currentDirectory);
 
         var message = $"""
@@ -174,7 +258,13 @@ public sealed class ScopeResolver(RagDbContext db)
         throw new InvalidOperationException(message);
     }
 
-    private static Repository? FindActiveRepository(string currentDirectory, List<Repository> allRepos)
+    // ------------------------------------------------------------
+    // Path helpers
+    // ------------------------------------------------------------
+
+    private static Repository? FindActiveRepository(
+        string currentDirectory,
+        List<Repository> allRepos)
     {
         var cwd = Path.GetFullPath(currentDirectory);
 
@@ -195,7 +285,6 @@ public sealed class ScopeResolver(RagDbContext db)
         if (!fullPath.StartsWith(fullRoot, StringComparison.OrdinalIgnoreCase))
             return false;
 
-        // Either exact match or next char is a directory separator
         if (fullPath.Length == fullRoot.Length)
             return true;
 

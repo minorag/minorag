@@ -28,7 +28,7 @@ public class Searcher(
     public async Task<SearchContext> RetrieveAsync(
         string question,
         bool verbose,
-         List<int>? repositoryIds = null,
+        List<int>? repositoryIds = null,
         int topK = 7,
         CancellationToken ct = default)
     {
