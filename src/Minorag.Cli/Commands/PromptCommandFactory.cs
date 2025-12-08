@@ -6,6 +6,7 @@ using Minorag.Cli.Hosting;
 using Minorag.Cli.Models.Options;
 using Minorag.Cli.Services;
 using Minorag.Cli.Store;
+using Spectre.Console;
 
 namespace Minorag.Cli.Commands;
 
@@ -55,16 +56,30 @@ public static class PromptCommandFactory
             var clientName = parseResult.GetValue(CliOptions.ClientOption);
             var allRepos = parseResult.GetValue(CliOptions.AllReposOption);
 
-            var repositories = await scopeResolver.ResolveScopeAsync(
-                  Environment.CurrentDirectory,
-                  repoNames: explicitRepoNames,
-                  reposCsv: reposCsv,
-                  projectName,
-                  clientName,
-                  allRepos,
-                  ct);
+            List<int> repoIds;
 
-            var repoIds = repositories.Select(r => r.Id).ToList();
+            try
+            {
+                var repositories = await scopeResolver.ResolveScopeAsync(
+                 Environment.CurrentDirectory,
+                 repoNames: explicitRepoNames,
+                 reposCsv: reposCsv,
+                 projectName,
+                 clientName,
+                 allRepos,
+                 ct);
+                repoIds = [.. repositories.Select(r => r.Id)];
+            }
+            catch (Exception ex)
+            {
+                // Pretty CLI error instead of ugly stack trace
+                AnsiConsole.WriteLine();
+                AnsiConsole.MarkupLine("[red]Error:[/] {0}", Markup.Escape(ex.Message.TrimEnd()));
+                AnsiConsole.WriteLine();
+
+                Environment.ExitCode = 1;
+                return;
+            }
 
             // Retrieval only (no LLM)
             var context = await searcher.RetrieveAsync(
