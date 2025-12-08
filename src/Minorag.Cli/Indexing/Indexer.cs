@@ -167,6 +167,8 @@ public class Indexer(
                     task.Increment(1);
                 }
             });
+
+        await store.SetRepositoryLastIndexDate(repository.Id, ct);
     }
 
     private static IEnumerable<string> EnumerateFiles(string root)

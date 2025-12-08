@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Minorag.Cli.Store;
 
@@ -10,9 +11,11 @@ using Minorag.Cli.Store;
 namespace Minorag.Cli.Migrations
 {
     [DbContext(typeof(RagDbContext))]
-    partial class RagDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251208165049_AddedLastIndexedAtToRepos")]
+    partial class AddedLastIndexedAtToRepos
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "8.0.22");

@@ -5,6 +5,7 @@ namespace Minorag.Cli.Store;
 
 public interface ISqliteStore
 {
+    Task SetRepositoryLastIndexDate(int repoId, CancellationToken ct);
     Task<Repository> GetOrCreateRepositoryAsync(string repoRoot, CancellationToken ct);
     Task<Dictionary<string, string>> GetFileHashesAsync(int repoId, CancellationToken ct);
     Task InsertChunkAsync(CodeChunk chunk, CancellationToken ct);
@@ -76,5 +77,15 @@ public class SqliteStore(RagDbContext db) : ISqliteStore
         }
 
         return db.Chunks.AsNoTracking().AsAsyncEnumerable();
+    }
+
+    public async Task SetRepositoryLastIndexDate(int repoId, CancellationToken ct)
+    {
+        var repo = await db.Repositories.FirstOrDefaultAsync(x => x.Id == repoId, ct);
+        if (repo is not null)
+        {
+            repo.LastIndexedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync(ct);
+        }
     }
 }
