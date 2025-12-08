@@ -1,9 +1,7 @@
 using System.Collections;
 using System.CommandLine;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Minorag.Cli.Cli;
-using Minorag.Cli.Models;
 using Minorag.Cli.Models.Options;
 using Minorag.Cli.Services;
 

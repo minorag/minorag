@@ -22,8 +22,11 @@ public static class PromptCommandFactory
         cmd.Add(CliOptions.QuestionArgument);
         cmd.Add(CliOptions.DbOption);
         cmd.Add(CliOptions.TopKOption);
+        cmd.Add(CliOptions.RepoNameOption);
+        cmd.Add(CliOptions.RepoNamesCsvOption);
+        cmd.Add(CliOptions.AllReposOption);
 
-        cmd.SetAction(async (parseResult, cancellationToken) =>
+        cmd.SetAction(async (parseResult, ct) =>
         {
             var question = parseResult.GetRequiredValue(CliOptions.QuestionArgument);
             var dbFile = parseResult.GetValue(CliOptions.DbOption);
@@ -42,8 +45,32 @@ public static class PromptCommandFactory
             var topKOverride = parseResult.GetValue(CliOptions.TopKOption);
             var effectiveTopK = topKOverride ?? ragOptions.Value.TopK;
 
+            var scopeResolver = scope.ServiceProvider.GetRequiredService<ScopeResolver>();
+
+            var explicitRepoNames = parseResult.GetValue(CliOptions.RepoNameOption) ?? [];
+            var reposCsv = parseResult.GetValue(CliOptions.RepoNamesCsvOption);
+            var projectName = parseResult.GetValue(CliOptions.ProjectOption);
+            var clientName = parseResult.GetValue(CliOptions.ClientOption);
+            var allRepos = parseResult.GetValue(CliOptions.AllReposOption);
+
+            var repositories = await scopeResolver.ResolveScopeAsync(
+                  Environment.CurrentDirectory,
+                  repoNames: explicitRepoNames,
+                  reposCsv: reposCsv,
+                  projectName,
+                  clientName,
+                  allRepos,
+                  ct);
+
+            var repoIds = repositories.Select(r => r.Id).ToList();
+
             // Retrieval only (no LLM)
-            var context = await searcher.RetrieveAsync(question, true, topK: effectiveTopK, ct: cancellationToken);
+            var context = await searcher.RetrieveAsync(
+                question,
+                verbose: true,
+                topK: effectiveTopK,
+                repositoryIds: repoIds,
+                ct: ct);
 
             var markdown = formatter.Format(context, question);
 

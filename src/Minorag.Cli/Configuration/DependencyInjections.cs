@@ -41,6 +41,7 @@ public static class DependencyInjections
         services.AddScoped<IIndexer, Indexer>();
         services.AddScoped<IIndexer, Indexer>();
         services.AddScoped<ISearcher, Searcher>();
+        services.AddScoped<ScopeResolver>();
 
         services.AddSingleton<IPromptFormatter, MarkdownPromptFormatter>();
         services.AddSingleton<IConsoleSearchPresenter, ConsoleSearchPresenter>();

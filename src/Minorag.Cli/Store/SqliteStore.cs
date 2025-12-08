@@ -10,7 +10,7 @@ public interface ISqliteStore
     Task<Dictionary<string, string>> GetFileHashesAsync(int repoId, CancellationToken ct);
     Task InsertChunkAsync(CodeChunk chunk, CancellationToken ct);
     Task DeleteChunksForFileAsync(int repoId, string relativePath, CancellationToken ct);
-    IAsyncEnumerable<CodeChunk> GetAllChunksAsync(bool verbose, CancellationToken ct);
+    IAsyncEnumerable<CodeChunk> GetAllChunksAsync(bool verbose, List<int>? repositoryIds = null, CancellationToken ct = default);
 }
 
 public class SqliteStore(RagDbContext db) : ISqliteStore
@@ -69,14 +69,22 @@ public class SqliteStore(RagDbContext db) : ISqliteStore
         await db.SaveChangesAsync(ct);
     }
 
-    public IAsyncEnumerable<CodeChunk> GetAllChunksAsync(bool verbose, CancellationToken ct)
+    public IAsyncEnumerable<CodeChunk> GetAllChunksAsync(bool verbose, List<int>? repositoryIds = null, CancellationToken ct = default)
     {
-        if (verbose)
+        var baseQuery = db.Chunks.AsNoTracking();
+
+        if (repositoryIds is not null && repositoryIds.Count > 0)
         {
-            return db.Chunks.AsNoTracking().Include(x => x.Repository).AsAsyncEnumerable();
+            baseQuery = baseQuery.Where(x => repositoryIds.Contains(x.RepositoryId));
         }
 
-        return db.Chunks.AsNoTracking().AsAsyncEnumerable();
+        if (verbose)
+        {
+            baseQuery = baseQuery.Include(x => x.Repository);
+        }
+
+
+        return baseQuery.AsAsyncEnumerable();
     }
 
     public async Task SetRepositoryLastIndexDate(int repoId, CancellationToken ct)
