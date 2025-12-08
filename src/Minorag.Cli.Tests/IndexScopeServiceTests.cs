@@ -1,38 +1,17 @@
-﻿using Microsoft.Data.Sqlite;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Minorag.Cli.Indexing;
 using Minorag.Cli.Models.Domain;
-using Minorag.Cli.Store;
+using Minorag.Cli.Tests.TestInfrastructure;
 
 namespace Minorag.Cli.Tests;
 
 public class IndexScopeServiceTests
 {
-    private static RagDbContext CreateContext()
-    {
-        var conn = new SqliteConnection("DataSource=:memory:");
-        conn.Open();
-
-        var options = new DbContextOptionsBuilder<RagDbContext>()
-            .UseSqlite(conn)
-            .Options;
-
-        var ctx = new RagDbContext(options);
-        ctx.Database.EnsureCreated();
-        return ctx;
-    }
-
-    private static DirectoryInfo FakeRepo(string name)
-    {
-        var dir = Path.Combine(Path.GetTempPath(), "minorag-tests", name);
-        Directory.CreateDirectory(dir);
-        return new DirectoryInfo(dir);
-    }
 
     [Fact]
     public async Task NoClientNoProject_CreatesOnlyRepository()
     {
-        using var ctx = CreateContext();
+        using var ctx = SqliteTestContextFactory.CreateContext();
         var service = new IndexScopeService(ctx);
         var repoRoot = FakeRepo("no_project");
 
@@ -51,7 +30,7 @@ public class IndexScopeServiceTests
     [Fact]
     public async Task ClientOnly_CreatesClientAndRepo()
     {
-        using var ctx = CreateContext();
+        using var ctx = SqliteTestContextFactory.CreateContext();
         var service = new IndexScopeService(ctx);
         var repoRoot = FakeRepo("client-only");
 
@@ -72,7 +51,7 @@ public class IndexScopeServiceTests
     [Fact]
     public async Task ProjectOnly_CreatesLocalClientAndProject()
     {
-        using var ctx = CreateContext();
+        using var ctx = SqliteTestContextFactory.CreateContext();
         var service = new IndexScopeService(ctx);
         var repoRoot = FakeRepo("project-only");
 
@@ -90,7 +69,7 @@ public class IndexScopeServiceTests
     [Fact]
     public async Task Idempotent_RepoAlreadyLinkedToSameProject()
     {
-        using var ctx = CreateContext();
+        using var ctx = SqliteTestContextFactory.CreateContext();
         var service = new IndexScopeService(ctx);
         var repoRoot = FakeRepo("idempotent");
 
@@ -106,7 +85,7 @@ public class IndexScopeServiceTests
     [Fact]
     public async Task Reassignment_WhenUserDeclines_Throws()
     {
-        using var ctx = CreateContext();
+        using var ctx = SqliteTestContextFactory.CreateContext();
 
         var oldClient = new Client { Name = "OldClient", Slug = "old_client" };
         ctx.Clients.Add(oldClient);
@@ -151,7 +130,7 @@ public class IndexScopeServiceTests
     [Fact]
     public async Task Reassignment_WhenUserAccepts_UpdatesProject()
     {
-        using var ctx = CreateContext();
+        using var ctx = SqliteTestContextFactory.CreateContext();
 
         var oldClient = new Client { Name = "OldClient", Slug = "old_client" };
         ctx.Clients.Add(oldClient);
@@ -193,5 +172,12 @@ public class IndexScopeServiceTests
         {
             Console.SetIn(backup);
         }
+    }
+
+    private static DirectoryInfo FakeRepo(string name)
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "minorag-tests", name);
+        Directory.CreateDirectory(dir);
+        return new DirectoryInfo(dir);
     }
 }

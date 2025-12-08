@@ -24,6 +24,29 @@
             "options": {
                 "cwd": "${workspaceFolder}/src/Minorag.Cli"
             }
+        },
+        {
+            "label": "Test with Coverage",
+            "type": "shell",
+            "command": "dotnet",
+            "args": [
+                "test",
+                "--collect:\"XPlat Code Coverage\""
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/tests/Minorag.Tests"
+            },
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "Generate Coverage Report (HTML)",
+            "type": "shell",
+            "command": "reportgenerator",
+            "args": [
+                "-reports:${workspaceFolder}/tests/Minorag.Tests/TestResults/**/coverage.cobertura.xml",
+                "-targetdir:${workspaceFolder}/coverage-report",
+                "-reporttypes:Html"
+            ]
         }
     ],
     "inputs": [

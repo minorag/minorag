@@ -140,7 +140,9 @@ public sealed class IndexScopeService(RagDbContext db) : IIndexScopeService
             .FirstOrDefaultAsync(c => c.Slug == defaultSlug, ct);
 
         if (existing is not null)
+        {
             return existing;
+        }
 
         var client = new Client
         {
