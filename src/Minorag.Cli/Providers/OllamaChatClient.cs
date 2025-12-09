@@ -8,6 +8,7 @@ namespace Minorag.Cli.Providers;
 public class OllamaChatClient(IOllamaClient ollama, IOptions<OllamaOptions> options) : ILlmClient
 {
     private readonly string _model = options.Value.ChatModel;
+    private readonly string _advancedModel = options.Value.AdvancedChatModel;
     private readonly double _temperature = options.Value.Temperature;
 
     public async Task<string> AskAsync(
@@ -21,11 +22,13 @@ public class OllamaChatClient(IOllamaClient ollama, IOptions<OllamaOptions> opti
 
     public IAsyncEnumerable<string> AskStreamAsync(
         string question,
+        bool useAdvancedModel,
         IReadOnlyList<CodeChunk> context,
         CancellationToken ct)
     {
         var userPrompt = BuildPrompt(question, context);
-        return ollama.ChatStreamAsync(_model, _temperature, userPrompt, ct);
+        var model = useAdvancedModel ? _advancedModel : _model;
+        return ollama.ChatStreamAsync(model, _temperature, userPrompt, ct);
     }
 
     private static string BuildPrompt(string question, IReadOnlyList<CodeChunk> context)

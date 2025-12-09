@@ -60,6 +60,7 @@ public static class ConfigCommandFactory
             Console.WriteLine("--------------------------------");
             Console.WriteLine($"Database path:   {dbPath}");
             Console.WriteLine($"Chat model:      {ollama.ChatModel}");
+            Console.WriteLine($"Adv. chat model: {ollama.AdvancedChatModel}");
             Console.WriteLine($"Embedding model: {ollama.EmbeddingModel}");
             Console.WriteLine($"Temperature:     {ollama.Temperature}");
             Console.WriteLine($"Max chunk size:  {rag.MaxChunkSize}");

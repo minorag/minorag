@@ -4,6 +4,12 @@ namespace Minorag.Cli.Cli;
 
 public static class CliOptions
 {
+    public static readonly Option<bool> DeepOption =
+        new("--deep")
+        {
+            Description = "Use the advanced LLM model from configuration (slower but deeper reasoning)."
+        };
+
     public static readonly Option<string[]> RepoNameOption =
         new("--repo")
         {

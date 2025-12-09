@@ -53,6 +53,7 @@ public static class AskCommandFactory
             var projectName = parseResult.GetValue(CliOptions.ProjectOption);
             var clientName = parseResult.GetValue(CliOptions.ClientOption);
             var allRepos = parseResult.GetValue(CliOptions.AllReposOption);
+            var useAdvancedModel = parseResult.GetValue(CliOptions.DeepOption);
 
             List<int> repoIds;
 
@@ -88,6 +89,8 @@ public static class AskCommandFactory
                 repositoryIds: repoIds,
                 topK: effectiveTopK,
                 ct: ct);
+
+            context.UseAdvancedModel = useAdvancedModel;
 
             presenter.PresentRetrieval(context, verbose);
 

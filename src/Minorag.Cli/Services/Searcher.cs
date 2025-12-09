@@ -89,8 +89,12 @@ public class Searcher(
             .Select(t => t.Chunk)
             .ToList();
 
-        await foreach (var piece in llmClient.AskStreamAsync(context.Question, contextChunks, ct)
-                           .WithCancellation(ct))
+        await foreach (var piece in llmClient.AskStreamAsync(
+                context.Question,
+                context.UseAdvancedModel,
+                contextChunks,
+                ct)
+                .WithCancellation(ct))
         {
             yield return piece;
         }

@@ -7,6 +7,7 @@ public interface ILlmClient
     Task<string> AskAsync(string question, IReadOnlyList<CodeChunk> context, CancellationToken ct);
     IAsyncEnumerable<string> AskStreamAsync(
         string question,
+        bool useAdvancedModel,
         IReadOnlyList<CodeChunk> context,
         CancellationToken ct);
 }
