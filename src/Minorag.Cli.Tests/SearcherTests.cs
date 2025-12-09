@@ -251,5 +251,10 @@ public class SearcherTests
             LastContext = context;
             return Task.FromResult(AnswerToReturn);
         }
+
+        public IAsyncEnumerable<string> AskStreamAsync(string question, IReadOnlyList<CodeChunk> context, CancellationToken ct)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

@@ -13,7 +13,7 @@
     <ToolCommandName>minorag</ToolCommandName>
     <PackageId>Minorag.Cli</PackageId>
 
-    <Version>0.1.22</Version>
+    <Version>0.1.23</Version>
     <Authors>Andrei Kurilo</Authors>
     <Description>Minorag codebase RAG CLI</Description>
   </PropertyGroup>
