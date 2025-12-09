@@ -25,6 +25,11 @@ public class BaseFakeStore : ISqliteStore
         throw new NotImplementedException();
     }
 
+    public Task<Repository?> GetRepositoryAsync(string repoRoot, CancellationToken ct)
+    {
+        throw new NotImplementedException();
+    }
+
     public virtual Task InsertChunkAsync(CodeChunk chunk, CancellationToken ct)
     {
         throw new NotImplementedException();

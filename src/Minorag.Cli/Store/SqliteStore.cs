@@ -28,20 +28,14 @@ public class SqliteStore(RagDbContext db) : ISqliteStore
     {
         using var tx = await db.Database.BeginTransactionAsync(ct);
 
-        var repo = await db.Repositories.AsTracking().FirstOrDefaultAsync(x => x.Id == repositoryId, ct);
+        await db.Chunks
+            .Where(c => c.RepositoryId == repositoryId)
+            .ExecuteDeleteAsync(ct);
 
-        var chunkQuery = db.Chunks.Where(c => c.RepositoryId == repositoryId);
+        await db.Repositories
+            .Where(r => r.Id == repositoryId)
+            .ExecuteDeleteAsync(ct);
 
-        var chunkCount = await chunkQuery.CountAsync(ct);
-
-        await chunkQuery.ExecuteDeleteAsync(ct);
-
-        if (repo is not null)
-        {
-            db.Repositories.Remove(repo);
-        }
-
-        await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
     }
 
