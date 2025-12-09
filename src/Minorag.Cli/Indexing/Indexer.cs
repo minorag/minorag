@@ -72,11 +72,21 @@ public class Indexer(
 
         var existingHashes = await store.GetFileHashesAsync(repository.Id, ct);
 
-        // Precompute candidate files (non-binary)
         var allFiles = EnumerateFiles(rootPath)
             .Where(file =>
             {
+                var fileName = Path.GetFileName(file);
                 var ext = Path.GetExtension(file).TrimStart('.').ToLowerInvariant();
+
+                // 1. Decide if this is a special text file without extension
+                var isFileWithNoExtension =
+                    string.IsNullOrEmpty(ext) &&
+                    IsFileWithNoExtension(fileName);
+
+                if (isFileWithNoExtension)
+                    return true;
+
+                // 2. Normal extension-based handling
                 return !string.IsNullOrEmpty(ext) && !BinaryExtensions.Contains(ext);
             })
             .ToList();
@@ -169,6 +179,15 @@ public class Indexer(
             });
 
         await store.SetRepositoryLastIndexDate(repository.Id, ct);
+    }
+
+
+    private static bool IsFileWithNoExtension(string fileName)
+    {
+        return fileName.Equals("dockerfile", StringComparison.OrdinalIgnoreCase)
+            || fileName.Equals("makefile", StringComparison.OrdinalIgnoreCase)
+            || fileName.Equals("license", StringComparison.OrdinalIgnoreCase)
+            || fileName.Equals("readme", StringComparison.OrdinalIgnoreCase);
     }
 
     private static IEnumerable<string> EnumerateFiles(string root)
