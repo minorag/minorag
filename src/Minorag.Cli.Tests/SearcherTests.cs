@@ -1,8 +1,7 @@
 using Minorag.Cli.Models;
 using Minorag.Cli.Models.Domain;
-using Minorag.Cli.Providers;
 using Minorag.Cli.Services;
-using Minorag.Cli.Store;
+using Minorag.Cli.Tests.TestInfrastructure;
 
 namespace Minorag.Cli.Tests;
 
@@ -12,7 +11,7 @@ public class SearcherTests
     public async Task RetrieveAsync_EmptyQuestion_ThrowsArgumentException()
     {
         // Arrange
-        var store = new FakeStore();
+        var store = new SearchFakeStore();
         var embedding = new FakeEmbeddingProvider();
         var llm = new FakeLlmClient();
         var searcher = new Searcher(store, embedding, llm);
@@ -26,7 +25,7 @@ public class SearcherTests
     public async Task RetrieveAsync_NoChunks_ReturnsEmptyContext()
     {
         // Arrange
-        var store = new FakeStore(); // no chunks
+        var store = new SearchFakeStore(); // no chunks
         var embedding = new FakeEmbeddingProvider
         {
             EmbeddingToReturn = [1f, 0f, 0f]
@@ -47,7 +46,7 @@ public class SearcherTests
     public async Task RetrieveAsync_FiltersByEmbeddingLength_AndOrdersByCosineSimilarity()
     {
         // Arrange
-        var store = new FakeStore();
+        var store = new SearchFakeStore();
         var embedding = new FakeEmbeddingProvider
         {
             // Query embedding: along X axis
@@ -94,7 +93,7 @@ public class SearcherTests
     public async Task RetrieveAsync_RespectsTopK()
     {
         // Arrange
-        var store = new FakeStore();
+        var store = new SearchFakeStore();
         var embedding = new FakeEmbeddingProvider
         {
             EmbeddingToReturn = new[] { 1f, 0f }
@@ -124,7 +123,7 @@ public class SearcherTests
     public async Task AnswerAsync_NoResultsOrUseLlmFalse_DoesNotCallLlm_ReturnsNullAnswer()
     {
         // Arrange
-        var store = new FakeStore();
+        var store = new SearchFakeStore();
         var embedding = new FakeEmbeddingProvider();
         var llm = new FakeLlmClient();
         var searcher = new Searcher(store, embedding, llm);
@@ -145,7 +144,7 @@ public class SearcherTests
     public async Task AnswerAsync_WithResultsAndUseLlmTrue_CallsLlmAndReturnsAnswer()
     {
         // Arrange
-        var store = new FakeStore();
+        var store = new SearchFakeStore();
         var embedding = new FakeEmbeddingProvider();
         var llm = new FakeLlmClient
         {
@@ -179,16 +178,11 @@ public class SearcherTests
     // Test doubles
     // --------------------------------------------------------------------
 
-    private sealed class FakeStore : ISqliteStore
+    private sealed class SearchFakeStore : BaseFakeStore
     {
         public List<CodeChunk> Chunks { get; } = [];
 
-        public Task DeleteChunksForFileAsync(int repoId, string relativePath, CancellationToken ct)
-        {
-            throw new NotImplementedException();
-        }
-
-        public async IAsyncEnumerable<CodeChunk> GetAllChunksAsync(
+        public override async IAsyncEnumerable<CodeChunk> GetAllChunksAsync(
             bool verbose,
             List<int>? repositoryIds,
             [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
@@ -199,66 +193,6 @@ public class SearcherTests
                 yield return chunk;
                 await Task.Yield();
             }
-        }
-
-        public Task<Dictionary<string, string>> GetFileHashesAsync(int repoId, CancellationToken ct)
-        {
-            throw new NotImplementedException();
-        }
-
-        public Task<Repository> GetOrCreateRepositoryAsync(string repoRoot, CancellationToken ct)
-        {
-            throw new NotImplementedException();
-        }
-
-        public Task InsertChunkAsync(CodeChunk chunk, CancellationToken ct)
-        {
-            throw new NotImplementedException();
-        }
-
-        public Task SetRepositoryLastIndexDate(int repoId, CancellationToken ct)
-        {
-            throw new NotImplementedException();
-        }
-    }
-
-    private sealed class FakeEmbeddingProvider : IEmbeddingProvider
-    {
-        public float[] EmbeddingToReturn { get; set; } = [];
-        public string? LastText { get; private set; }
-
-        public Task<float[]> EmbedAsync(string text, CancellationToken ct = default)
-        {
-            LastText = text;
-            return Task.FromResult(EmbeddingToReturn);
-        }
-    }
-
-    private sealed class FakeLlmClient : ILlmClient
-    {
-        public bool WasCalled { get; private set; }
-        public string? LastQuestion { get; private set; }
-        public IReadOnlyList<CodeChunk>? LastContext { get; private set; }
-        public string AnswerToReturn { get; set; } = string.Empty;
-
-        public Task<string> AskAsync(
-            string question,
-            IReadOnlyList<CodeChunk> context,
-            CancellationToken ct = default)
-        {
-            WasCalled = true;
-            LastQuestion = question;
-            LastContext = context;
-            return Task.FromResult(AnswerToReturn);
-        }
-
-        public IAsyncEnumerable<string> AskStreamAsync(
-            string question,
-            bool useAdvancedModel,
-            IReadOnlyList<CodeChunk> context,
-            CancellationToken ct)
-        {
-            throw new NotImplementedException();
         }
     }
 }

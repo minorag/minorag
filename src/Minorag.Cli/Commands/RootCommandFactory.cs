@@ -4,11 +4,11 @@ namespace Minorag.Cli.Commands;
 
 public static class RootCommandFactory
 {
-    public static RootCommand CreateRootCommand()
+  public static RootCommand CreateRootCommand()
+  {
+    var root = new RootCommand("Minorag CLI")
     {
-        var root = new RootCommand("Minorag CLI")
-        {
-            Description = """
+      Description = """
                           Command-line utilities for indexing and querying codebases using RAG.
 
                           Typical usage:
@@ -24,16 +24,17 @@ public static class RootCommandFactory
                             --verbose,-v  Print retrieved snippets
                             --no-llm      Only show retrieved files/snippets, no LLM call
                           """
-        };
+    };
 
-        root.Add(DbPathCommandFactory.Create());
-        root.Add(IndexCommandFactory.Create());
-        root.Add(AskCommandFactory.Create());
-        root.Add(PromptCommandFactory.Create());
-        root.Add(ConfigCommandFactory.Create());
-        root.Add(ReposCommandFactory.Create());
-        root.Add(VersionCommandFactory.Create());
+    root.Add(DbPathCommandFactory.Create());
+    root.Add(IndexCommandFactory.Create());
+    root.Add(AskCommandFactory.Create());
+    root.Add(PromptCommandFactory.Create());
+    root.Add(ConfigCommandFactory.Create());
+    root.Add(ReposCommandFactory.Create());
+    root.Add(RepoRmCommandFactory.Create());
+    root.Add(VersionCommandFactory.Create());
 
-        return root;
-    }
+    return root;
+  }
 }

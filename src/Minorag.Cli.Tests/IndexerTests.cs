@@ -1,11 +1,9 @@
-using System.Security.Cryptography;
-using System.Text;
 using Microsoft.Extensions.Options;
 using Minorag.Cli.Indexing;
 using Minorag.Cli.Models.Domain;
 using Minorag.Cli.Models.Options;
-using Minorag.Cli.Providers;
-using Minorag.Cli.Store;
+using Minorag.Cli.Services;
+using Minorag.Cli.Tests.TestInfrastructure;
 
 namespace Minorag.Cli.Tests;
 
@@ -32,7 +30,7 @@ public class IndexerTests
         await File.WriteAllTextAsync(ignoredFile, "// should not be indexed");
         await File.WriteAllTextAsync(imageFile, "PNG BINARY STUB");
 
-        var store = new FakeStore();
+        var store = new IndexerFakeStore();
         var embeddingProvider = new FakeEmbeddingProvider
         {
             EmbeddingToReturn = [1f, 0f]
@@ -67,9 +65,9 @@ public class IndexerTests
         await File.WriteAllTextAsync(filePath, content);
 
         var relPath = "foo.cs";
-        var hash = ComputeSha256(content); // must match Indexer.ComputeSha256
+        var hash = CryptoHelper.ComputeSha256(content);
 
-        var store = new FakeStore();
+        var store = new IndexerFakeStore();
         store.ExistingHashes[NormalizePath(relPath)] = hash;
 
         var embeddingProvider = new FakeEmbeddingProvider
@@ -99,7 +97,7 @@ public class IndexerTests
 
         var relPath = "bar.cs";
 
-        var store = new FakeStore();
+        var store = new IndexerFakeStore();
         // Old hash different from new → should re-index
         store.ExistingHashes[NormalizePath(relPath)] = "OLD_HASH";
 
@@ -140,7 +138,7 @@ public class IndexerTests
         var content = line1 + "\n" + line2;
         await File.WriteAllTextAsync(filePath, content);
 
-        var store = new FakeStore();
+        var store = new IndexerFakeStore();
         var embeddingProvider = new FakeEmbeddingProvider
         {
             EmbeddingToReturn = [1f, 0f, 0f]
@@ -183,20 +181,7 @@ public class IndexerTests
     private static string NormalizePath(string path)
         => path.Replace('\\', '/');
 
-    // Same SHA-256 logic as Minorag.Cli/Indexing/Indexer.cs
-    private static string ComputeSha256(string content)
-    {
-        using var sha = SHA256.Create();
-        var bytes = Encoding.UTF8.GetBytes(content);
-        var hashBytes = sha.ComputeHash(bytes);
-        return Convert.ToHexString(hashBytes); // uppercase hex
-    }
-
-    // --------------------------------------------------------------------
-    // Test doubles for ISqliteStore and IEmbeddingProvider
-    // --------------------------------------------------------------------
-
-    private sealed class FakeStore : ISqliteStore
+    private sealed class IndexerFakeStore : BaseFakeStore
     {
         public Repository Repository { get; } = new()
         {
@@ -211,31 +196,31 @@ public class IndexerTests
         public List<CodeChunk> InsertedChunks { get; } = [];
         public List<(int repoId, string relativePath)> DeletedChunksForFile { get; } = [];
 
-        public Task<Repository> GetOrCreateRepositoryAsync(string repoRoot, CancellationToken ct)
+        public override Task<Repository> GetOrCreateRepositoryAsync(string repoRoot, CancellationToken ct)
         {
             Repository.RootPath = repoRoot;
             return Task.FromResult(Repository);
         }
 
-        public Task<Dictionary<string, string>> GetFileHashesAsync(int repoId, CancellationToken ct)
+        public override Task<Dictionary<string, string>> GetFileHashesAsync(int repoId, CancellationToken ct)
         {
             return Task.FromResult(new Dictionary<string, string>(ExistingHashes));
         }
 
-        public Task DeleteChunksForFileAsync(int repoId, string relativePath, CancellationToken ct)
+        public override Task DeleteChunksForFileAsync(int repoId, string relativePath, CancellationToken ct)
         {
             DeletedChunksForFile.Add((repoId, relativePath));
             return Task.CompletedTask;
         }
 
-        public Task InsertChunkAsync(CodeChunk chunk, CancellationToken ct)
+        public override Task InsertChunkAsync(CodeChunk chunk, CancellationToken ct)
         {
             InsertedChunks.Add(chunk);
             return Task.CompletedTask;
         }
 
         // Not used by Indexer, but required by ISqliteStore
-        public async IAsyncEnumerable<CodeChunk> GetAllChunksAsync(
+        public override async IAsyncEnumerable<CodeChunk> GetAllChunksAsync(
             bool verbose,
             List<int>? repositoryIds,
             [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
@@ -248,22 +233,10 @@ public class IndexerTests
             }
         }
 
-        public Task SetRepositoryLastIndexDate(int repoId, CancellationToken ct)
+        public override Task SetRepositoryLastIndexDate(int repoId, CancellationToken ct)
         {
             Repository.LastIndexedAt = DateTime.UtcNow;
             return Task.CompletedTask;
-        }
-    }
-
-    private sealed class FakeEmbeddingProvider : IEmbeddingProvider
-    {
-        public float[] EmbeddingToReturn { get; set; } = [];
-        public string? LastText { get; private set; }
-
-        public Task<float[]> EmbedAsync(string text, CancellationToken ct = default)
-        {
-            LastText = text;
-            return Task.FromResult(EmbeddingToReturn);
         }
     }
 }

@@ -5,6 +5,8 @@ namespace Minorag.Cli.Store;
 
 public interface ISqliteStore
 {
+    Task<Repository?> GetRepositoryAsync(string repoRoot, CancellationToken ct);
+    Task RemoveRepository(int repositoryId, CancellationToken ct);
     Task SetRepositoryLastIndexDate(int repoId, CancellationToken ct);
     Task<Repository> GetOrCreateRepositoryAsync(string repoRoot, CancellationToken ct);
     Task<Dictionary<string, string>> GetFileHashesAsync(int repoId, CancellationToken ct);
@@ -15,12 +17,39 @@ public interface ISqliteStore
 
 public class SqliteStore(RagDbContext db) : ISqliteStore
 {
+    public async Task<Repository?> GetRepositoryAsync(string repoRoot, CancellationToken ct)
+    {
+        var repo = await db.Repositories
+              .FirstOrDefaultAsync(r => r.RootPath == repoRoot, ct);
+        return repo;
+    }
+
+    public async Task RemoveRepository(int repositoryId, CancellationToken ct)
+    {
+        using var tx = await db.Database.BeginTransactionAsync(ct);
+
+        var repo = await db.Repositories.AsTracking().FirstOrDefaultAsync(x => x.Id == repositoryId, ct);
+
+        var chunkQuery = db.Chunks.Where(c => c.RepositoryId == repositoryId);
+
+        var chunkCount = await chunkQuery.CountAsync(ct);
+
+        await chunkQuery.ExecuteDeleteAsync(ct);
+
+        if (repo is not null)
+        {
+            db.Repositories.Remove(repo);
+        }
+
+        await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
+    }
+
     public async Task<Repository> GetOrCreateRepositoryAsync(string repoRoot, CancellationToken ct)
     {
         repoRoot = Path.GetFullPath(repoRoot);
 
-        var repo = await db.Repositories
-            .FirstOrDefaultAsync(r => r.RootPath == repoRoot, ct);
+        var repo = await GetRepositoryAsync(repoRoot, ct);
 
         if (repo is not null)
             return repo;

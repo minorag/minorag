@@ -1,9 +1,8 @@
-using System.Security.Cryptography;
-using System.Text;
 using Microsoft.Extensions.Options;
 using Minorag.Cli.Models.Domain;
 using Minorag.Cli.Models.Options;
 using Minorag.Cli.Providers;
+using Minorag.Cli.Services;
 using Minorag.Cli.Store;
 using Spectre.Console;
 
@@ -163,7 +162,7 @@ public class Indexer(
                     var relPath = Path.GetRelativePath(rootPath, file);
 
                     var content = await File.ReadAllTextAsync(file, ct);
-                    var fileHash = ComputeSha256(content);
+                    var fileHash = CryptoHelper.ComputeSha256(content);
 
                     if (existingHashes.TryGetValue(relPath, out var oldHash) && !reindex &&
                         string.Equals(oldHash, fileHash, StringComparison.Ordinal))
@@ -302,12 +301,6 @@ public class Indexer(
         }
     }
 
-    private static string ComputeSha256(string content)
-    {
-        var bytes = Encoding.UTF8.GetBytes(content);
-        var hashBytes = SHA256.HashData(bytes);
-        return Convert.ToHexString(hashBytes);
-    }
     private static string GuessLanguage(string ext)
     {
         // Normal extension-based handling
