@@ -42,7 +42,7 @@ public class IndexerTests
         var indexer = new Indexer(store, embeddingProvider, ragOptions);
 
         // Act
-        await indexer.IndexAsync(root.FullName, CancellationToken.None);
+        await indexer.IndexAsync(root.FullName, false, CancellationToken.None);
 
         // Assert
         Assert.Single(store.InsertedChunks);
@@ -81,7 +81,7 @@ public class IndexerTests
         var indexer = new Indexer(store, embeddingProvider, ragOptions);
 
         // Act
-        await indexer.IndexAsync(root.FullName, CancellationToken.None);
+        await indexer.IndexAsync(root.FullName, false, CancellationToken.None);
 
         // Assert
         Assert.Empty(store.InsertedChunks);
@@ -112,7 +112,7 @@ public class IndexerTests
         var indexer = new Indexer(store, embeddingProvider, ragOptions);
 
         // Act
-        await indexer.IndexAsync(root.FullName, CancellationToken.None);
+        await indexer.IndexAsync(root.FullName, false, CancellationToken.None);
 
         // Assert
         Assert.Single(store.DeletedChunksForFile);
@@ -150,7 +150,7 @@ public class IndexerTests
         var indexer = new Indexer(store, embeddingProvider, ragOptions);
 
         // Act
-        await indexer.IndexAsync(root.FullName, CancellationToken.None);
+        await indexer.IndexAsync(root.FullName, false, CancellationToken.None);
 
         // Assert
         Assert.True(store.InsertedChunks.Count >= 2);
