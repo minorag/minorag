@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.RegularExpressions;
 using Minorag.Cli.Models;
 using Spectre.Console;
@@ -8,10 +9,17 @@ public interface IConsoleSearchPresenter
 {
     void PresentRetrieval(SearchContext context, bool verbose);
     void PresentAnswer(SearchResult result, bool showLlm);
+    Task PresentAnswerStreamingAsync(
+       IAsyncEnumerable<string> answerStream,
+       CancellationToken ct = default);
 }
 
 public class ConsoleSearchPresenter : IConsoleSearchPresenter
 {
+    private const string SeparatorColor = "silver";       // lighter than grey
+    private const string CodeColor = "cyan";         // for inline code
+    private const string MetaColor = "grey70";
+
     public void PresentRetrieval(SearchContext context, bool verbose)
     {
         if (!context.HasResults)
@@ -86,6 +94,205 @@ public class ConsoleSearchPresenter : IConsoleSearchPresenter
 
             rank++;
             AnsiConsole.WriteLine();
+        }
+    }
+
+    public async Task PresentAnswerStreamingAsync(
+     IAsyncEnumerable<string> answerStream,
+     CancellationToken ct = default)
+    {
+        AnsiConsole.WriteLine();
+        AnsiConsole.MarkupLine($"[{SeparatorColor}]" + new string('=', 80) + "[/]");
+        AnsiConsole.MarkupLine("[bold yellow]Answer (streaming)[/]");
+        AnsiConsole.MarkupLine($"[{SeparatorColor}]" + new string('=', 80) + "[/]");
+        AnsiConsole.WriteLine();
+
+        var buffer = new StringBuilder();
+
+        // --- streaming state ---
+        var inCodeBlock = false;
+        var codeLang = string.Empty;
+        var codeLines = new List<string>();
+
+        var inTable = false;
+        var tableLines = new List<string>();
+
+        // tiny inline spinner state
+        var spinnerFrames = new[] { "|", "/", "-", "\\" };
+        var spinnerIndex = 0;
+        var spinnerVisible = false;
+
+        void TickSpinner()
+        {
+            var frame = spinnerFrames[spinnerIndex];
+            spinnerIndex = (spinnerIndex + 1) % spinnerFrames.Length;
+
+            if (!spinnerVisible)
+            {
+                AnsiConsole.Markup($"[{MetaColor}]{frame}[/]");
+                spinnerVisible = true;
+            }
+            else
+            {
+                // erase previous char and draw new one
+                AnsiConsole.Write("\b \b");
+                AnsiConsole.Markup($"[{MetaColor}]{frame}[/]");
+            }
+        }
+
+        void ClearSpinner()
+        {
+            if (!spinnerVisible) return;
+            AnsiConsole.Write("\b \b"); // erase char
+            spinnerVisible = false;
+        }
+
+        // Consume chunks from the LLM stream
+        await foreach (var piece in answerStream.WithCancellation(ct))
+        {
+            buffer.Append(piece);
+
+            if (!buffer.ToString().Contains('\n'))
+            {
+                TickSpinner();
+            }
+
+            // Process complete lines from buffer
+            while (true)
+            {
+                var text = buffer.ToString();
+                var newlineIndex = text.IndexOf('\n');
+                if (newlineIndex < 0)
+                    break;
+
+                var line = text[..newlineIndex];          // without '\n'
+                buffer.Remove(0, newlineIndex + 1);       // +1 to drop '\n'
+
+                ProcessLine(line);
+            }
+        }
+
+        // Flush last partial line, if any
+        if (buffer.Length > 0)
+        {
+            ProcessLine(buffer.ToString());
+        }
+
+        // Finalize any open structures
+        if (inTable && tableLines.Count > 0)
+        {
+            RenderTable();
+        }
+        else if (inCodeBlock && codeLines.Count > 0)
+        {
+            // Stream ended before closing ``` – just print raw
+            RenderCodeBlock();
+        }
+
+        ClearSpinner();
+        AnsiConsole.WriteLine();
+
+        // ----------------- local helpers -----------------
+
+        void ProcessLine(string line)
+        {
+            if (inCodeBlock)
+            {
+                // End of code block?
+                if (line.TrimStart().StartsWith("```"))
+                {
+                    RenderCodeBlock();
+                    inCodeBlock = false;
+                    codeLang = string.Empty;
+                    codeLines.Clear();
+                }
+                else
+                {
+                    codeLines.Add(line);
+                }
+
+                return;
+            }
+
+            if (inTable)
+            {
+                // Still in table?
+                if (line.TrimStart().StartsWith("|"))
+                {
+                    tableLines.Add(line);
+                    return;
+                }
+
+                // Table ended → render it, then treat this line as normal
+                RenderTable();
+                inTable = false;
+                tableLines.Clear();
+                // fall through to normal handling for current line
+            }
+
+            var trimmed = line.TrimStart();
+
+            // Start of code block: ```c#, ```bash, ```md, or just ```
+            if (trimmed.StartsWith("```"))
+            {
+                inCodeBlock = true;
+                var afterTicks = trimmed.Length > 3 ? trimmed[3..].Trim() : string.Empty;
+                codeLang = afterTicks; // may be empty
+                return;
+            }
+
+            // Start of markdown table
+            if (trimmed.StartsWith("|"))
+            {
+                inTable = true;
+                tableLines.Add(line);
+                return;
+            }
+
+            // Normal markdown → convert + print immediately
+            ClearSpinner();
+            var markup = MarkdownToSpectreMarkup(line + "\n");
+            AnsiConsole.Markup(markup);
+        }
+
+        void RenderCodeBlock()
+        {
+            ClearSpinner();
+
+            // Join buffered lines into a single string first
+            var code = string.Join('\n', codeLines);
+
+            // Optional language label above the block
+            if (!string.IsNullOrWhiteSpace(codeLang))
+            {
+                AnsiConsole.MarkupLine($"[{MetaColor}]```{codeLang}[/]");
+            }
+
+            // Print each line indented, with markup escaped
+            var lines = code.Split('\n');
+            foreach (var l in lines)
+            {
+                var escaped = EscapeMarkup(l);
+                AnsiConsole.MarkupLine($"    [{CodeColor}]{escaped}[/]");
+            }
+
+            AnsiConsole.MarkupLine($"[{MetaColor}]```[/]");
+            AnsiConsole.WriteLine();
+        }
+
+        void RenderTable()
+        {
+            ClearSpinner();
+
+            var tableText = string.Join('\n', tableLines);
+
+            // Reuse your existing table renderer
+            if (!TryRenderMarkdownTable(tableText))
+            {
+                // Fallback: plain markdown formatting
+                var markup = MarkdownToSpectreMarkup(tableText + "\n");
+                AnsiConsole.Markup(markup);
+            }
         }
     }
 

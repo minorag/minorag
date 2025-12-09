@@ -93,8 +93,8 @@ public static class AskCommandFactory
 
             if (!noLlm && context.HasResults)
             {
-                var result = await searcher.AnswerAsync(context, useLlm: true, ct: ct);
-                presenter.PresentAnswer(result, showLlm: true);
+                var stream = searcher.AnswerStreamAsync(context, useLlm: true, ct: ct);
+                await presenter.PresentAnswerStreamingAsync(stream, ct);
             }
             else if (noLlm)
             {

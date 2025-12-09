@@ -1,7 +1,6 @@
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
-using Microsoft.Extensions.Options;
-using Minorag.Cli.Models;
 
 namespace Minorag.Cli.Providers;
 
@@ -17,6 +16,12 @@ public interface IOllamaClient
         double temperature,
         string prompt,
         CancellationToken ct);
+
+    IAsyncEnumerable<string> ChatStreamAsync(
+        string model,
+        double temperature,
+        string prompt,
+        CancellationToken ct = default);
 }
 
 public class OllamaClient(HttpClient httpClient) : IOllamaClient
@@ -64,6 +69,69 @@ public class OllamaClient(HttpClient httpClient) : IOllamaClient
         return embeddingResponse.Embedding;
     }
 
+    public async IAsyncEnumerable<string> ChatStreamAsync(
+            string model,
+            double temperature,
+            string prompt,
+            [EnumeratorCancellation] CancellationToken ct = default)
+    {
+        var payload = new
+        {
+            model,
+            temperature,
+            stream = true,
+            messages = new[] { new { role = "user", content = prompt } }
+        };
+
+        var json = JsonSerializer.Serialize(payload, JsonOptions);
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/chat")
+        {
+            Content = new StringContent(json, Encoding.UTF8, "application/json")
+        };
+
+        using var response = await httpClient.SendAsync(
+            request,
+            HttpCompletionOption.ResponseHeadersRead,
+            ct);
+
+        response.EnsureSuccessStatusCode();
+
+        await using var stream = await response.Content.ReadAsStreamAsync(ct);
+        using var reader = new StreamReader(stream);
+
+        while (!ct.IsCancellationRequested)
+        {
+            var line = await reader.ReadLineAsync(ct);
+            if (line is null)
+                break;
+
+            if (string.IsNullOrWhiteSpace(line))
+                continue;
+
+            OllamaChunk? chunk;
+            try
+            {
+                chunk = JsonSerializer.Deserialize<OllamaChunk>(line, JsonOptions);
+            }
+            catch
+            {
+                continue;
+            }
+
+            if (chunk is null)
+                continue;
+
+            if (!string.IsNullOrEmpty(chunk.Message?.Content))
+            {
+                // Yield just the content piece
+                yield return chunk.Message.Content;
+            }
+
+            if (chunk.Done)
+                break;
+        }
+    }
 
     public async Task<string> ChatAsync(
         string model,

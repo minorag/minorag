@@ -15,6 +15,21 @@ public class OllamaChatClient(IOllamaClient ollama, IOptions<OllamaOptions> opti
         IReadOnlyList<CodeChunk> context,
         CancellationToken ct)
     {
+        var userPrompt = BuildPrompt(question, context);
+        return await ollama.ChatAsync(_model, _temperature, userPrompt, ct);
+    }
+
+    public IAsyncEnumerable<string> AskStreamAsync(
+        string question,
+        IReadOnlyList<CodeChunk> context,
+        CancellationToken ct)
+    {
+        var userPrompt = BuildPrompt(question, context);
+        return ollama.ChatStreamAsync(_model, _temperature, userPrompt, ct);
+    }
+
+    private static string BuildPrompt(string question, IReadOnlyList<CodeChunk> context)
+    {
         var contextText = BuildContextBlock(context);
 
         var userPrompt = new StringBuilder()
@@ -27,11 +42,7 @@ public class OllamaChatClient(IOllamaClient ollama, IOptions<OllamaOptions> opti
             .AppendLine(question)
             .ToString();
 
-        return await ollama.ChatAsync(
-            _model,
-            _temperature,
-            userPrompt,
-            ct);
+        return userPrompt;
     }
 
     private static string BuildContextBlock(IReadOnlyList<CodeChunk> chunks)

@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Minorag.Cli.Models;
 using Minorag.Cli.Models.Domain;
 using Minorag.Cli.Providers;
@@ -15,6 +16,11 @@ public interface ISearcher
         CancellationToken ct = default);
 
     Task<SearchResult> AnswerAsync(
+        SearchContext context,
+        bool useLlm = true,
+        CancellationToken ct = default);
+
+    IAsyncEnumerable<string> AnswerStreamAsync(
         SearchContext context,
         bool useLlm = true,
         CancellationToken ct = default);
@@ -67,6 +73,27 @@ public class Searcher(
             .ToList();
 
         return new SearchContext(question, top);
+    }
+
+    public async IAsyncEnumerable<string> AnswerStreamAsync(
+           SearchContext context,
+           bool useLlm = true,
+           [EnumeratorCancellation] CancellationToken ct = default)
+    {
+        if (!context.HasResults || !useLlm)
+        {
+            yield break;
+        }
+
+        var contextChunks = context.Chunks
+            .Select(t => t.Chunk)
+            .ToList();
+
+        await foreach (var piece in llmClient.AskStreamAsync(context.Question, contextChunks, ct)
+                           .WithCancellation(ct))
+        {
+            yield return piece;
+        }
     }
 
     public async Task<SearchResult> AnswerAsync(
