@@ -34,10 +34,10 @@ public class Searcher(
     private static readonly string[] PathExtensions =
        [
            ".cs", ".csproj", ".sln",
-        ".ts", ".tsx", ".js", ".mjs", ".cjs",
-        ".json", ".yaml", ".yml", ".toml", ".md",
-        ".tf", ".hcl", ".sh", ".bat", ".ps1",
-        ".dockerfile"
+            ".ts", ".tsx", ".js", ".mjs", ".cjs",
+            ".json", ".yaml", ".yml", ".toml", ".md",
+            ".tf", ".hcl", ".sh", ".bat", ".ps1",
+            ".dockerfile"
        ];
 
     private static readonly string[] PathLikeNames =
