@@ -4,9 +4,15 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'src/**'
+      - '.github/**'
   pull_request:
     branches:
       - main
+    paths:
+      - 'src/**'
+      - '.github/**'
 
 jobs:
   build-and-test:
@@ -31,6 +37,5 @@ jobs:
       - name: Build (all target frameworks)
         run: dotnet build ./src/Minorag.sln --configuration Release --no-restore
 
-      # If/when you add tests, this will run them for all TFMs
       - name: Test
         run: dotnet test ./src/Minorag.sln --configuration Release --no-build --verbosity normal
