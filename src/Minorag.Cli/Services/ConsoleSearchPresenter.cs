@@ -420,6 +420,9 @@ public class ConsoleSearchPresenter : IConsoleSearchPresenter
         // HTML line breaks → real newlines
         t = Regex.Replace(t, @"<br\s*/?>", "\n", RegexOptions.IgnoreCase);
 
+        // 🔐 Escape all Spectre markup chars *before* adding our own
+        t = Markup.Escape(t);
+
         // Inline code: `IOcrClient` → [cyan]IOcrClient[/]
         t = Regex.Replace(t, "`([^`]+)`", "[cyan]$1[/]");
 
@@ -477,7 +480,7 @@ public class ConsoleSearchPresenter : IConsoleSearchPresenter
         );
 
         // Inline code: `code`
-        text = Regex.Replace(text, "`([^`]+)`", "[grey]`$1`[/]");
+        text = Regex.Replace(text, "`([^`]+)`", "[orange1]`$1`[/]");
 
         // Bullet points: - foo / * foo → • foo
         text = Regex.Replace(text, @"^(\s*)- ", "$1• ", RegexOptions.Multiline);

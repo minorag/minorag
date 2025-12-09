@@ -52,7 +52,9 @@
             "program": "${workspaceFolder}/src/Minorag.Cli/bin/Debug/net8.0/Minorag.Cli.dll",
             "args": [
                 "ask",
-                "${input:minoragQuestion}"
+                "${input:minoragQuestion}",
+                "--client",
+                "amtbot"
             ],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
@@ -68,11 +70,8 @@
             "args": [
                 "index",
                 "--repo",
-                "${workspaceFolder}",
-                "--client",
-                "Minorag",
-                "--project",
-                "Minorag"
+                "/Users/akurilo/Work/personal/amtbot/amtbot-api",
+                "--reindex"
             ],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",

@@ -10,6 +10,12 @@ public static class CliOptions
             Description = "Use the advanced LLM model from configuration (slower but deeper reasoning)."
         };
 
+    public static readonly Option<bool> ReindexOption =
+        new("--reindex")
+        {
+            Description = "Force repository re-indexing."
+        };
+
     public static readonly Option<string[]> RepoNameOption =
         new("--repo")
         {
@@ -81,5 +87,6 @@ public static class CliOptions
         DbOption.Aliases.Add("-d");
         VerboseOption.Aliases.Add("-v");
         TopKOption.Aliases.Add("-k");
+        DeepOption.Aliases.Add("--advanced");
     }
 }

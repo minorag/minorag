@@ -11,7 +11,7 @@ namespace Minorag.Cli.Indexing;
 
 public interface IIndexer
 {
-    Task IndexAsync(string rootPath, CancellationToken ct);
+    Task IndexAsync(string rootPath, bool reindex, CancellationToken ct);
 }
 
 public class Indexer(
@@ -19,6 +19,37 @@ public class Indexer(
     IEmbeddingProvider provider,
     IOptions<RagOptions> ragOptions) : IIndexer
 {
+
+    public const string DockerFile = "dockerfile";
+    public const string Makefile = "makefile";
+    public const string ReadmeFile = "readme";
+    public const string LicenseFile = "license";
+
+    private static readonly HashSet<string> ExcludedFiles = new(StringComparer.OrdinalIgnoreCase)
+    {
+        // OS / IDE noise
+        ".ds_store",
+        "thumbs.db",
+
+        // Lockfiles – huge & rarely useful for RAG
+        "package-lock.json",
+        "yarn.lock",
+        "pnpm-lock.yaml",
+        "pnpm-lock.yml",
+        "poetry.lock",
+        "pipfile.lock",
+        "composer.lock",
+        "cargo.lock",
+
+        // Local config / secrets (very important)
+        ".env",
+        ".env.local",
+        ".env.development",
+        ".env.production",
+        "appsettings.local.json",
+        "appsettings.Development.local.json"
+    };
+
     private static readonly HashSet<string> ExcludedDirs = new(StringComparer.OrdinalIgnoreCase)
     {
         "bin", "obj", "node_modules", ".git", ".vs", ".idea", ".venv",
@@ -59,7 +90,7 @@ public class Indexer(
         "lock", "bin"
     };
 
-    public async Task IndexAsync(string rootPath, CancellationToken ct)
+    public async Task IndexAsync(string rootPath, bool reindex, CancellationToken ct)
     {
         // Normalize path
         rootPath = Path.GetFullPath(rootPath);
@@ -76,6 +107,10 @@ public class Indexer(
             .Where(file =>
             {
                 var fileName = Path.GetFileName(file);
+
+                if (ExcludedFiles.Contains(fileName))
+                    return false;
+
                 var ext = Path.GetExtension(file).TrimStart('.').ToLowerInvariant();
 
                 // 1. Decide if this is a special text file without extension
@@ -111,12 +146,26 @@ public class Indexer(
                     ct.ThrowIfCancellationRequested();
 
                     var ext = Path.GetExtension(file).TrimStart('.').ToLowerInvariant();
+                    var fileName = Path.GetFileName(file);
+
+                    if (string.IsNullOrEmpty(ext))
+                    {
+                        if (fileName.Equals(DockerFile, StringComparison.OrdinalIgnoreCase))
+                            ext = DockerFile;
+                        else if (fileName.Equals(Makefile, StringComparison.OrdinalIgnoreCase))
+                            ext = Makefile;
+                        else if (fileName.Equals(LicenseFile, StringComparison.OrdinalIgnoreCase))
+                            ext = "txt";
+                        else if (fileName.Equals(ReadmeFile, StringComparison.OrdinalIgnoreCase))
+                            ext = "md";
+                    }
+
                     var relPath = Path.GetRelativePath(rootPath, file);
 
                     var content = await File.ReadAllTextAsync(file, ct);
                     var fileHash = ComputeSha256(content);
 
-                    if (existingHashes.TryGetValue(relPath, out var oldHash) &&
+                    if (existingHashes.TryGetValue(relPath, out var oldHash) && !reindex &&
                         string.Equals(oldHash, fileHash, StringComparison.Ordinal))
                     {
                         // Unchanged
@@ -131,6 +180,12 @@ public class Indexer(
                         // New file
                         AnsiConsole.MarkupLine(
                             $"[green]➕ New file, indexing:[/] [cyan]{Escape(relPath)}[/]");
+                    }
+                    else if (reindex)
+                    {
+                        // Changed file
+                        AnsiConsole.MarkupLine(
+                            $"[yellow]♻ Re-index applied. file, re-indexing:[/] [cyan]{Escape(relPath)}[/]");
                     }
                     else
                     {
@@ -184,10 +239,10 @@ public class Indexer(
 
     private static bool IsFileWithNoExtension(string fileName)
     {
-        return fileName.Equals("dockerfile", StringComparison.OrdinalIgnoreCase)
-            || fileName.Equals("makefile", StringComparison.OrdinalIgnoreCase)
-            || fileName.Equals("license", StringComparison.OrdinalIgnoreCase)
-            || fileName.Equals("readme", StringComparison.OrdinalIgnoreCase);
+        return fileName.Equals(DockerFile, StringComparison.OrdinalIgnoreCase)
+            || fileName.Equals(Makefile, StringComparison.OrdinalIgnoreCase)
+            || fileName.Equals(LicenseFile, StringComparison.OrdinalIgnoreCase)
+            || fileName.Equals(ReadmeFile, StringComparison.OrdinalIgnoreCase);
     }
 
     private static IEnumerable<string> EnumerateFiles(string root)
@@ -253,24 +308,29 @@ public class Indexer(
         var hashBytes = SHA256.HashData(bytes);
         return Convert.ToHexString(hashBytes);
     }
-
-    private static string GuessLanguage(string ext) => ext switch
+    private static string GuessLanguage(string ext)
     {
-        "cs" or "csproj" or "sln" or "props" or "targets" or "ruleset" => "csharp",
-        "js" or "mjs" => "javascript",
-        "ts" => "typescript",
-        "py" => "python",
-        "go" => "go",
-        "html" => "html",
-        "css" => "css",
-        "tf" or "hcl" => "terraform",
-        "yaml" or "yml" => "yaml",
-        "json" => "json",
-        "md" => "markdown",
-        "toml" => "toml",
-        "sh" or "bat" => "shell",
-        _ => "text"
-    };
+        // Normal extension-based handling
+        return ext switch
+        {
+            "cs" or "csproj" or "sln" or "props" or "targets" or "ruleset" => "csharp",
+            "js" or "mjs" => "javascript",
+            "ts" => "typescript",
+            "py" => "python",
+            "go" => "go",
+            "html" => "html",
+            "css" => "css",
+            "tf" or "hcl" => "terraform",
+            "yaml" or "yml" => "yaml",
+            "json" => "json",
+            "md" => "markdown",
+            "toml" => "toml",
+            "sh" or "bat" => "shell",
+            DockerFile => DockerFile,
+            Makefile => "make",
+            _ => "text"
+        };
+    }
 
     private static string Escape(string text)
         => text is null ? string.Empty : Markup.Escape(text);

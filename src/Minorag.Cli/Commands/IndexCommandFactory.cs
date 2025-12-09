@@ -22,6 +22,7 @@ public static class IndexCommandFactory
         cmd.Add(CliOptions.DbOption);
         cmd.Add(CliOptions.ClientOption);
         cmd.Add(CliOptions.ProjectOption);
+        cmd.Add(CliOptions.ReindexOption);
 
         cmd.SetAction(async (parseResult, cancellationToken) =>
         {
@@ -57,8 +58,10 @@ public static class IndexCommandFactory
                 return;
             }
 
+            var reindex = parseResult.GetValue(CliOptions.ReindexOption);
+
             var indexer = scope.ServiceProvider.GetRequiredService<IIndexer>();
-            await indexer.IndexAsync(repoRoot.FullName, cancellationToken);
+            await indexer.IndexAsync(repoRoot.FullName, reindex, cancellationToken);
 
             Console.WriteLine("Indexing completed.");
         });
