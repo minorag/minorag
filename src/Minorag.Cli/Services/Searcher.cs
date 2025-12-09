@@ -31,17 +31,34 @@ public class Searcher(
     IEmbeddingProvider embeddingProvider,
     ILlmClient llmClient) : ISearcher
 {
+    private static readonly string[] PathExtensions =
+       [
+           ".cs", ".csproj", ".sln",
+        ".ts", ".tsx", ".js", ".mjs", ".cjs",
+        ".json", ".yaml", ".yml", ".toml", ".md",
+        ".tf", ".hcl", ".sh", ".bat", ".ps1",
+        ".dockerfile"
+       ];
+
+    private static readonly string[] PathLikeNames =
+    [
+        "dockerfile", "makefile", "readme", "license"
+    ];
+
     public async Task<SearchContext> RetrieveAsync(
-        string question,
-        bool verbose,
-        List<int>? repositoryIds = null,
-        int topK = 7,
-        CancellationToken ct = default)
+    string question,
+    bool verbose,
+    List<int>? repositoryIds = null,
+    int topK = 7,
+    CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(question))
         {
             throw new ArgumentException("Question is empty.", nameof(question));
         }
+
+        // Optional path hint extracted from the question text
+        var pathHint = ExtractPathHint(question);
 
         // 1. Embed the question
         var queryEmbedding = await embeddingProvider.EmbedAsync(question, ct);
@@ -58,7 +75,25 @@ public class Searcher(
                 continue;
 
             var score = CosineSimilarity(queryEmbedding, chunk.Embedding);
-            scored.Add((chunk, score));
+
+            // ---- path-based score boost (soft preference) ----
+            var boostedScore = score;
+
+            if (!string.IsNullOrEmpty(pathHint))
+            {
+                var path = chunk.Path ?? string.Empty;
+
+                if (path.Contains(pathHint, StringComparison.OrdinalIgnoreCase))
+                {
+                    const float boostFactor = 1.2f;
+                    boostedScore = score * boostFactor;
+
+                    if (boostedScore > 1f)
+                        boostedScore = 1f;
+                }
+            }
+
+            scored.Add((chunk, boostedScore));
         }
 
         if (scored.Count == 0)
@@ -142,5 +177,41 @@ public class Searcher(
             return 0f;
 
         return (float)(dot / (Math.Sqrt(normA) * Math.Sqrt(normB)));
+    }
+
+    private static string? ExtractPathHint(string question)
+    {
+        if (string.IsNullOrWhiteSpace(question))
+            return null;
+
+        // Split on whitespace + common punctuation
+        var tokens = question.Split(
+            [' ', '\t', '\r', '\n', '\"', '\'', '(', ')', ',', ';', ':'],
+            StringSplitOptions.RemoveEmptyEntries);
+
+        foreach (var raw in tokens)
+        {
+            var t = raw.Trim().Trim('"', '\'', '`');
+
+            if (string.IsNullOrWhiteSpace(t))
+                continue;
+
+            // 1) token that clearly looks like a path: contains / or \
+            if (t.Contains('/') || t.Contains('\\'))
+                return t;
+
+            // 2) token that ends with a common file extension
+            foreach (var ext in PathExtensions)
+            {
+                if (t.EndsWith(ext, StringComparison.OrdinalIgnoreCase))
+                    return t;
+            }
+
+            // 3) bare well-known filenames
+            if (PathLikeNames.Contains(t, StringComparer.OrdinalIgnoreCase))
+                return t;
+        }
+
+        return null;
     }
 }
