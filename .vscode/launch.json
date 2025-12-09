@@ -53,8 +53,6 @@
             "args": [
                 "ask",
                 "${input:minoragQuestion}",
-                "--client",
-                "amtbot"
             ],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
@@ -70,8 +68,11 @@
             "args": [
                 "index",
                 "--repo",
-                "/Users/akurilo/Work/personal/amtbot/amtbot-api",
-                "--reindex"
+                "${workspaceFolder}",
+                "--client",
+                "Minorag",
+                "--project",
+                "Minorag"
             ],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
