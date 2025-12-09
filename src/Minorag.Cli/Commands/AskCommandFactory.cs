@@ -29,6 +29,7 @@ public static class AskCommandFactory
         cmd.Add(CliOptions.VerboseOption);
         cmd.Add(CliOptions.NoLlmOption);
         cmd.Add(CliOptions.AllReposOption);
+        cmd.Add(CliOptions.DeepOption);
 
         cmd.SetAction(async (parseResult, ct) =>
         {
