@@ -18,11 +18,35 @@ Think *ripgrep + ChatGPT*, but fully offline.
 
 ---
 
+## Quickstart
+
+```bash
+# 1. Install Ollama
+curl -fsSL https://ollama.com/install.sh | sh
+ollama serve
+
+# 2. Pull recommended models
+ollama pull mxbai-embed-large
+ollama pull gpt-oss:20b
+
+# 3. Install Minorag (from repo root)
+dotnet tool install --global Minorag.Cli --add-source ./src/Minorag.Cli/bin/Release
+
+# 4. Index & ask
+cd ~/dev/my-project
+minorag index
+minorag ask "Where is authentication handled?"
+```
+
+---
+
 # Features
 
 - Local embeddings via Ollama (mxbai-embed-large, nomic-embed-text, etc.)
 - Local chat answering using any Ollama chat model
 - Chunk-based indexing for multi-language repos
+- Safe re-indexing support (keep your index fresh as code changes)
+- Multi-repository indexing into a single SQLite DB
 - Cosine similarity search
 - Pretty CLI output (Spectre.Console)
 - Zero network requirements beyond Ollama
@@ -112,6 +136,18 @@ Example `appsettings.json`:
 
 # Usage
 
+## Commands overview
+
+| Command              | Description                                           |
+|----------------------|-------------------------------------------------------|
+| `minorag index`      | Index a repo/folder into the local SQLite DB         |
+| `minorag ask`        | Ask natural language questions over indexed repos    |
+| `minorag prompt`     | Generate a ChatGPT-ready prompt (no LLM call)        |
+| `minorag db-path`    | Show the path to the SQLite database                 |
+| `minorag config`     | Show and manage configuration                        |
+| `minorag repos`      | List repositories stored in the index                |
+| `minorag version`    | Show CLI version                                     |
+
 ## Index the current repo
 
 ```bash
@@ -157,6 +193,9 @@ minorag prompt "How does the authentication middleware work?" | clip # Windows
 ---
 
 # Why Minorag?
+
+- Incremental adoption: index one repo or your whole dev folder
+- Built for local-first workflows with Ollama
 
 | Feature | Minorag | VS Code Extensions | Cloud ChatGPT | Cody |
 |--------|---------|--------------------|----------------|------|
