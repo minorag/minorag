@@ -140,13 +140,14 @@ Example `appsettings.json`:
 
 | Command              | Description                                           |
 |----------------------|-------------------------------------------------------|
-| `minorag index`      | Index a repo/folder into the local SQLite DB         |
-| `minorag ask`        | Ask natural language questions over indexed repos    |
-| `minorag prompt`     | Generate a ChatGPT-ready prompt (no LLM call)        |
-| `minorag db-path`    | Show the path to the SQLite database                 |
-| `minorag config`     | Show and manage configuration                        |
-| `minorag repos`      | List repositories stored in the index                |
-| `minorag version`    | Show CLI version                                     |
+| `minorag index`      | Index a repo/folder into the local SQLite DB          |
+| `minorag ask`        | Ask natural language questions over indexed repos     |
+| `minorag prompt`     | Generate a ChatGPT-ready prompt (no LLM call)         |
+| `minorag db-path`    | Show the path to the SQLite database                  |
+| `minorag config`     | Show and manage configuration                         |
+| `minorag repos`      | List repositories stored in the index                 |
+| `minorag version`    | Show CLI version                                      |
+| `minorag doctor `    | Run health checks                                     |
 
 ## Index the current repo
 
