@@ -45,6 +45,7 @@ public static class DependencyInjections
 
         services.AddSingleton<IPromptFormatter, MarkdownPromptFormatter>();
         services.AddSingleton<IConsoleSearchPresenter, ConsoleSearchPresenter>();
+        services.AddScoped<IEnvironmentDoctor, EnvironmentDoctor>();
         services.AddScoped<IIndexScopeService, IndexScopeService>();
 
         return services;
