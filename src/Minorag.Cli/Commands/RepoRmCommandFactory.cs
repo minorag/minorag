@@ -1,5 +1,4 @@
 using System.CommandLine;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Minorag.Cli.Cli;
 using Minorag.Cli.Hosting;

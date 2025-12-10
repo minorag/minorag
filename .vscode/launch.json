@@ -2,6 +2,20 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Minorag: doctor",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build Minorag.Cli",
+            "program": "${workspaceFolder}/src/Minorag.Cli/bin/Debug/net8.0/Minorag.Cli.dll",
+            "args": [
+                "doctor"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "justMyCode": true
+        },
+        {
             "name": "Minorag: repo-rm",
             "type": "coreclr",
             "request": "launch",
