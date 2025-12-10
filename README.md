@@ -86,13 +86,13 @@ ollama pull gpt-oss:20b
 
 # Installation
 
-## Pack the .NET tool
+## Pack the .NET tool or [Check Latest Release](https://github.com/minorag/minorag/releases/latest)
 
 ```bash
 dotnet pack -c Release
 ```
 
-## Install globally
+## Install globally as a dotnet tool
 
 From inside `src/`:
 
