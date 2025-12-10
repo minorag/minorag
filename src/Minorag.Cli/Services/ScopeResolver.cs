@@ -18,17 +18,14 @@ public sealed class ScopeResolver(RagDbContext db)
     {
         var allRepos = await LoadRepositoriesAsync(ct);
 
-        // 1. no repos at all
         EnsureAnyRepositories(allRepos);
 
-        // 2. explicit all-repos
         if (allReposFlag)
         {
             PrintAllReposScope();
             return allRepos;
         }
 
-        // 3. explicit repo list: --repo / --repos
         var explicitRepoNames = BuildExplicitRepoNameSet(repoNames, reposCsv);
         var explicitScope = TryResolveExplicitRepos(explicitRepoNames, allRepos);
         if (explicitScope is not null)
@@ -36,27 +33,20 @@ public sealed class ScopeResolver(RagDbContext db)
             return explicitScope;
         }
 
-        // 4. project scope: --project
         var projectScope = TryResolveProjectScope(projectName, allRepos);
         if (projectScope is not null)
         {
             return projectScope;
         }
 
-        // 5. client scope: --client
         var clientScope = TryResolveClientScope(clientName, allRepos);
         if (clientScope is not null)
         {
             return clientScope;
         }
 
-        // 6. infer from current directory (or throw with guidance)
         return ResolveFromCurrentDirectory(currentDirectory, allRepos);
     }
-
-    // ------------------------------------------------------------
-    // Top-level helpers
-    // ------------------------------------------------------------
 
     private static void EnsureAnyRepositories(List<Repository> allRepos)
     {
@@ -67,7 +57,7 @@ public sealed class ScopeResolver(RagDbContext db)
         }
     }
 
-    private void PrintAllReposScope()
+    private static void PrintAllReposScope()
     {
         AnsiConsole.MarkupLine("[cyan]Using scope:[/] [green]all repositories[/].");
     }
@@ -78,13 +68,11 @@ public sealed class ScopeResolver(RagDbContext db)
     {
         var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        // --repo (repeatable)
         foreach (var name in repoNames.Where(n => !string.IsNullOrWhiteSpace(n)))
         {
             set.Add(name.Trim());
         }
 
-        // --repos (csv)
         if (!string.IsNullOrWhiteSpace(reposCsv))
         {
             var parts = reposCsv.Split(
@@ -111,12 +99,14 @@ public sealed class ScopeResolver(RagDbContext db)
     // ------------------------------------------------------------
     // Resolution strategies (repo / project / client / cwd)
     // ------------------------------------------------------------
-    private static IReadOnlyList<Repository>? TryResolveExplicitRepos(
+    private static List<Repository>? TryResolveExplicitRepos(
         HashSet<string> explicitRepoNames,
         List<Repository> allRepos)
     {
         if (explicitRepoNames.Count == 0)
+        {
             return null;
+        }
 
         var scoped = allRepos
             .Where(r => explicitRepoNames.Contains(r.Name))

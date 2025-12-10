@@ -184,7 +184,6 @@ public class Searcher(
         if (string.IsNullOrWhiteSpace(question))
             return null;
 
-        // Split on whitespace + common punctuation
         var tokens = question.Split(
             [' ', '\t', '\r', '\n', '\"', '\'', '(', ')', ',', ';', ':'],
             StringSplitOptions.RemoveEmptyEntries);
@@ -194,22 +193,27 @@ public class Searcher(
             var t = raw.Trim().Trim('"', '\'', '`');
 
             if (string.IsNullOrWhiteSpace(t))
+            {
                 continue;
+            }
 
-            // 1) token that clearly looks like a path: contains / or \
             if (t.Contains('/') || t.Contains('\\'))
+            {
                 return t;
+            }
 
-            // 2) token that ends with a common file extension
             foreach (var ext in PathExtensions)
             {
                 if (t.EndsWith(ext, StringComparison.OrdinalIgnoreCase))
+                {
                     return t;
+                }
             }
 
-            // 3) bare well-known filenames
             if (PathLikeNames.Contains(t, StringComparer.OrdinalIgnoreCase))
+            {
                 return t;
+            }
         }
 
         return null;

@@ -4,6 +4,12 @@ namespace Minorag.Cli.Cli;
 
 public static class CliOptions
 {
+    public static readonly Option<string[]> ExcludeOption =
+        new("--exclude")
+        {
+            Description = "Glob pattern to exclude from indexing (can be repeated, .gitignore style)."
+        };
+
     public static readonly Option<bool> DryRunOption =
        new("--dry-run")
        {

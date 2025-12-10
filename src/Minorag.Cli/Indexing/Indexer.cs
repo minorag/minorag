@@ -10,7 +10,11 @@ namespace Minorag.Cli.Indexing;
 
 public interface IIndexer
 {
-    Task IndexAsync(string rootPath, bool reindex, CancellationToken ct);
+    Task IndexAsync(
+        string rootPath,
+        bool reindex,
+        string[] excludePatterns,
+        CancellationToken ct);
 }
 
 public class Indexer(
@@ -18,91 +22,62 @@ public class Indexer(
     IEmbeddingProvider provider,
     IOptions<RagOptions> ragOptions) : IIndexer
 {
-
     public const string DockerFile = "dockerfile";
     public const string Makefile = "makefile";
     public const string ReadmeFile = "readme";
     public const string LicenseFile = "license";
 
-    private static readonly HashSet<string> ExcludedFiles = new(StringComparer.OrdinalIgnoreCase)
-    {
-        // OS / IDE noise
-        ".ds_store",
-        "thumbs.db",
-
-        // Lockfiles – huge & rarely useful for RAG
-        "package-lock.json",
-        "yarn.lock",
-        "pnpm-lock.yaml",
-        "pnpm-lock.yml",
-        "poetry.lock",
-        "pipfile.lock",
-        "composer.lock",
-        "cargo.lock",
-
-        // Local config / secrets (very important)
-        ".env",
-        ".env.local",
-        ".env.development",
-        ".env.production",
-        "appsettings.local.json",
-        "appsettings.Development.local.json"
-    };
-
-    private static readonly HashSet<string> ExcludedDirs = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "bin", "obj", "node_modules", ".git", ".vs", ".idea", ".venv",
-        "__pycache__", ".mypy_cache", ".pytest_cache",
-        ".gradle", "build", "out", "target",
-        "dist", "coverage", ".next", ".angular", ".nuxt", "storybook-static",
-        "vendor", "logs", "tmp", "temp", ".cache",
-        "cmake-build-debug", "cmake-build-release", "CMakeFiles"
-    };
-
-    private static readonly HashSet<string> BinaryExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "png", "ico", "jar", "woff", "woff2", "dll", "exe", "pdb", "snap",
-        "gif", "jpg", "jpeg", "so",
-
-        // Images
-        "bmp", "tiff", "webp", "svgz",
-
-        // Design
-        "ai", "eps", "psd", "sketch",
-
-        // Documents
-        "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx",
-
-        // Audio + video
-        "mp3", "wav", "ogg", "mp4", "mov", "mkv", "avi",
-
-        // Archives
-        "zip", "rar", "7z", "tar", "gz", "bz2",
-
-        // Binary artifacts
-        "class", "wasm", "sqlite", "db", "bak",
-
-        // Fonts
-        "ttf", "otf", "eot", "ttc",
-
-        // Misc
-        "lock", "bin"
-    };
-
-    public async Task IndexAsync(string rootPath, bool reindex, CancellationToken ct)
+    private static readonly HashSet<string> ExcludedFiles = ExcludedPatterns.ExcludedFiles;
+    private static readonly HashSet<string> ExcludedDirs = ExcludedPatterns.ExcludedDirs;
+    private static readonly HashSet<string> BinaryExtensions = ExcludedPatterns.BinaryExtensions;
+    public async Task IndexAsync(
+            string rootPath,
+            bool reindex,
+            string[] excludePatterns,
+            CancellationToken ct)
     {
         // Normalize path
         rootPath = Path.GetFullPath(rootPath);
+
+        // ---------------------------------------------------------------------
+        // Build ignore matcher: .minoragignore + CLI --exclude (CLI wins)
+        // ---------------------------------------------------------------------
+        var cliPatterns = ValidateCliPatterns(excludePatterns);
+        var filePatterns = LoadMinoragIgnorePatterns(rootPath);
+        var matcher = PathIgnoreMatcher.Create(filePatterns, cliPatterns);
+
+        var ignoredFilesCount = 0;
+        var ignoredDirsCount = 0;
 
         // Resolve / create repository row
         var repository = await store.GetOrCreateRepositoryAsync(rootPath, ct);
 
         AnsiConsole.MarkupLine(
-            $"[cyan]Loading existing file hashes for repo:[/] [blue]{Escape(repository.RootPath)}[/]");
+            "[cyan]Loading existing file hashes for repo:[/] [blue]{0}[/]",
+            Escape(repository.RootPath));
 
         var existingHashes = await store.GetFileHashesAsync(repository.Id, ct);
 
-        var allFiles = EnumerateFiles(rootPath)
+        // Enumerate *candidate* files, honoring:
+        // - built-in ExcludedDirs
+        // - .minoragignore + --exclude (matcher)
+        var allFiles = EnumerateFiles(
+                rootPath,
+                matcher,
+                onIgnoredFile: file =>
+                {
+                    ignoredFilesCount++;
+                    AnsiConsole.MarkupLine(
+                        "[grey]Skipping ignored file:[/] {0}",
+                        Escape(Path.GetRelativePath(rootPath, file)));
+                },
+                onIgnoredDir: dir =>
+                {
+                    ignoredDirsCount++;
+                    AnsiConsole.MarkupLine(
+                        "[grey]Skipping ignored directory:[/] {0}",
+                        Escape(Path.GetRelativePath(rootPath, dir)));
+                })
             .Where(file =>
             {
                 var fileName = Path.GetFileName(file);
@@ -125,7 +100,20 @@ public class Indexer(
             })
             .ToList();
 
-        AnsiConsole.MarkupLine($"[cyan]Found[/] [green]{allFiles.Count}[/] [cyan]candidate files to index.[/]");
+        AnsiConsole.MarkupLine(
+            "[cyan]Found[/] [green]{0}[/] [cyan]candidate files to index (after built-in + ignore filtering).[/]",
+            allFiles.Count);
+
+        if (ignoredFilesCount + ignoredDirsCount > 0)
+        {
+            AnsiConsole.MarkupLine(
+                "[cyan]Ignored[/] [yellow]{0}[/] [cyan]paths via .minoragignore / --exclude (files: {1}, dirs: {2}).[/]",
+                ignoredFilesCount + ignoredDirsCount,
+                ignoredFilesCount,
+                ignoredDirsCount);
+        }
+
+        var indexedCount = 0;
 
         // Progress bar for indexing
         await AnsiConsole.Progress()
@@ -169,7 +157,8 @@ public class Indexer(
                     {
                         // Unchanged
                         AnsiConsole.MarkupLine(
-                            $"[dim][grey]⚪ Unchanged, skipping:[/] {Escape(relPath)}[/]");
+                            "[dim][grey]⚪ Unchanged, skipping:[/] {0}[/]",
+                            Escape(relPath));
                         task.Increment(1);
                         continue;
                     }
@@ -178,19 +167,20 @@ public class Indexer(
                     {
                         // New file
                         AnsiConsole.MarkupLine(
-                            $"[green]➕ New file, indexing:[/] [cyan]{Escape(relPath)}[/]");
+                            "[green]➕ New file, indexing:[/] [cyan]{0}[/]",
+                            Escape(relPath));
                     }
                     else if (reindex)
                     {
-                        // Changed file
                         AnsiConsole.MarkupLine(
-                            $"[yellow]♻ Re-index applied. file, re-indexing:[/] [cyan]{Escape(relPath)}[/]");
+                            "[yellow]♻ Re-index applied, re-indexing:[/] [cyan]{0}[/]",
+                            Escape(relPath));
                     }
                     else
                     {
-                        // Changed file
                         AnsiConsole.MarkupLine(
-                            $"[yellow]♻ Changed file, re-indexing:[/] [cyan]{Escape(relPath)}[/]");
+                            "[yellow]♻ Changed file, re-indexing:[/] [cyan]{0}[/]",
+                            Escape(relPath));
                     }
 
                     await store.DeleteChunksForFileAsync(repository.Id, relPath, ct);
@@ -221,30 +211,127 @@ public class Indexer(
                         catch (Exception ex)
                         {
                             AnsiConsole.MarkupLine(
-                                $"[yellow]⚠️  [bold]Failed to embed[/] [cyan]{Escape(chunk.Path)}[/]:[/] [red]{Escape(ex.Message)}[/]");
+                                "[yellow]⚠️  [bold]Failed to embed[/] [cyan]{0}[/]: [red]{1}[/]",
+                                Escape(chunk.Path),
+                                Escape(ex.Message));
                             continue;
                         }
 
                         await store.InsertChunkAsync(chunk, ct);
                     }
 
+                    indexedCount++;
                     task.Increment(1);
                 }
             });
 
         await store.SetRepositoryLastIndexDate(repository.Id, ct);
+
+        AnsiConsole.MarkupLine(
+            "[cyan]Indexing completed.[/] [green]{0}[/] files indexed, [yellow]{1}[/] paths skipped (ignored).",
+            indexedCount,
+            ignoredFilesCount + ignoredDirsCount);
     }
 
+    // ------------------------------------------------------------------------
+    // .minoragignore loading
+    // ------------------------------------------------------------------------
 
-    private static bool IsFileWithNoExtension(string fileName)
+    private static IReadOnlyList<string> LoadMinoragIgnorePatterns(string repoRoot)
     {
-        return fileName.Equals(DockerFile, StringComparison.OrdinalIgnoreCase)
-            || fileName.Equals(Makefile, StringComparison.OrdinalIgnoreCase)
-            || fileName.Equals(LicenseFile, StringComparison.OrdinalIgnoreCase)
-            || fileName.Equals(ReadmeFile, StringComparison.OrdinalIgnoreCase);
+        var ignorePath = Path.Combine(repoRoot, ".minoragignore");
+        if (!File.Exists(ignorePath))
+        {
+            return Array.Empty<string>();
+        }
+
+        var patterns = new List<string>();
+        var invalid = new List<string>();
+
+        foreach (var raw in File.ReadAllLines(ignorePath))
+        {
+            var line = raw.Trim();
+            if (string.IsNullOrEmpty(line) || line.StartsWith("#", StringComparison.Ordinal))
+                continue;
+
+            var hasOpen = line.Contains('[');
+            var hasClose = line.Contains(']');
+
+            if (hasOpen ^ hasClose)
+            {
+                invalid.Add(line);
+                continue;
+            }
+
+            patterns.Add(line);
+        }
+
+        if (invalid.Count > 0)
+        {
+            AnsiConsole.MarkupLine(
+                "[yellow]⚠[/] .minoragignore contains [cyan]{0}[/] invalid patterns:",
+                invalid.Count);
+
+            foreach (var rule in invalid.Take(10))
+            {
+                AnsiConsole.MarkupLine(
+                    "    [yellow]⚠[/] Invalid ignore pattern [red]{0}[/], ignoring.",
+                    Markup.Escape(rule));
+            }
+
+            if (invalid.Count > 10)
+            {
+                AnsiConsole.MarkupLine(
+                    "    [grey]… and {0} more invalid patterns.[/]",
+                    invalid.Count - 10);
+            }
+        }
+
+        return patterns;
     }
 
-    private static IEnumerable<string> EnumerateFiles(string root)
+    // ------------------------------------------------------------------------
+    // CLI pattern validation
+    // ------------------------------------------------------------------------
+
+    private static string[] ValidateCliPatterns(string[] patterns)
+    {
+        if (patterns is null || patterns.Length == 0)
+            return Array.Empty<string>();
+
+        var valid = new List<string>();
+
+        foreach (var raw in patterns)
+        {
+            var pattern = raw?.Trim();
+            if (string.IsNullOrEmpty(pattern))
+                continue;
+
+            var hasOpen = pattern.Contains('[');
+            var hasClose = pattern.Contains(']');
+
+            if (hasOpen ^ hasClose)
+            {
+                throw new ArgumentException(
+                    $"Invalid --exclude pattern: '{pattern}'. Unbalanced '[' / ']'.",
+                    nameof(patterns));
+            }
+
+            valid.Add(pattern);
+        }
+
+        return valid.ToArray();
+    }
+
+    // ------------------------------------------------------------------------
+    // Filesystem traversal with ignore support
+    // ------------------------------------------------------------------------
+
+    private static IEnumerable<string> EnumerateFiles(
+        string root,
+        PathIgnoreMatcher? matcher,
+        Action<string>? onIgnoredFile,
+        Action<string>? onIgnoredDir)
     {
         var stack = new Stack<string>();
         stack.Push(root);
@@ -253,20 +340,58 @@ public class Indexer(
         {
             var dir = stack.Pop();
 
+            // Skip built-in excluded directories
+            var name = Path.GetFileName(dir);
+            if (!string.IsNullOrEmpty(name) && ExcludedDirs.Contains(name))
+            {
+                onIgnoredDir?.Invoke(dir);
+                continue;
+            }
+
+            // Apply ignore matcher for directories (repo-relative)
+            if (matcher is not null)
+            {
+                var relDir = Path.GetRelativePath(root, dir);
+                if (!string.IsNullOrEmpty(relDir) &&
+                    matcher.IsIgnored(relDir, isDirectory: true))
+                {
+                    onIgnoredDir?.Invoke(dir);
+                    continue;
+                }
+            }
+
             foreach (var sub in Directory.GetDirectories(dir))
             {
-                var name = Path.GetFileName(sub);
-                if (ExcludedDirs.Contains(name))
-                    continue;
-
                 stack.Push(sub);
             }
 
             foreach (var file in Directory.GetFiles(dir))
             {
+                if (matcher is not null)
+                {
+                    var relFile = Path.GetRelativePath(root, file);
+                    if (matcher.IsIgnored(relFile, isDirectory: false))
+                    {
+                        onIgnoredFile?.Invoke(file);
+                        continue;
+                    }
+                }
+
                 yield return file;
             }
         }
+    }
+
+    // ------------------------------------------------------------------------
+    // Helpers
+    // ------------------------------------------------------------------------
+
+    private static bool IsFileWithNoExtension(string fileName)
+    {
+        return fileName.Equals(DockerFile, StringComparison.OrdinalIgnoreCase)
+            || fileName.Equals(Makefile, StringComparison.OrdinalIgnoreCase)
+            || fileName.Equals(LicenseFile, StringComparison.OrdinalIgnoreCase)
+            || fileName.Equals(ReadmeFile, StringComparison.OrdinalIgnoreCase);
     }
 
     private static IEnumerable<string> ChunkContent(string content, int maxChars)
