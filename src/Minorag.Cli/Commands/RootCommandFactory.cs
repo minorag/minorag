@@ -34,6 +34,7 @@ public static class RootCommandFactory
     root.Add(ReposCommandFactory.Create());
     root.Add(RepoRmCommandFactory.Create());
     root.Add(DoctorCommandFactory.Create());
+    root.Add(PruneCommandFactory.Create());
     root.Add(VersionCommandFactory.Create());
 
     return root;

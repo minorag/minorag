@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
+using Minorag.Cli.Indexing;
 using Minorag.Cli.Models.Options;
 using Minorag.Cli.Store;
 using Spectre.Console;
@@ -17,7 +18,8 @@ public sealed class EnvironmentDoctor(
     RagDbContext db,
     IConfiguration configuration,
     IOptions<OllamaOptions> ollamaOptions,
-    IHttpClientFactory httpClientFactory) : IEnvironmentDoctor
+    IHttpClientFactory httpClientFactory,
+    IIndexPruner indexPruner) : IEnvironmentDoctor
 {
     private readonly OllamaOptions ollamaOpts = ollamaOptions.Value;
 
@@ -163,96 +165,65 @@ public sealed class EnvironmentDoctor(
 
         try
         {
-            var repoCount = await db.Repositories.LongCountAsync(ct);
-            var chunkCount = await db.Chunks.LongCountAsync(ct);
-            var clientCount = await db.Clients.LongCountAsync(ct);
-            var projectCount = await db.Projects.LongCountAsync(ct);
+            var summary = await indexPruner.PruneAsync(
+                dryRun: true,
+                pruneOrphanOwners: false,
+                ct);
+
+            if (summary.IndexEmpty)
+            {
+                AnsiConsole.MarkupLine("[yellow]No repositories indexed yet. Index is empty.[/]");
+                AnsiConsole.WriteLine();
+                return;
+            }
 
             AnsiConsole.MarkupLine(
                 "[green]✔[/] {0} repositories, {1} chunks, {2} clients, {3} projects in index",
-                repoCount, chunkCount, clientCount, projectCount);
+                summary.TotalRepositories,
+                summary.TotalChunks,
+                summary.TotalClients,
+                summary.TotalProjects);
 
-            var allRepos = await db.Repositories
-                .AsNoTracking()
-                .Select(r => new { r.Id, r.RootPath })
-                .ToListAsync(ct);
-
-            var missingRepos = allRepos
-                .Where(r => !string.IsNullOrWhiteSpace(r.RootPath) && !Directory.Exists(r.RootPath))
-                .ToList();
-
-            if (missingRepos.Count == 0)
+            if (summary.MissingRepositories == 0)
             {
                 AnsiConsole.MarkupLine("[green]✔[/] All repository directories still exist on disk");
             }
             else
             {
                 AnsiConsole.MarkupLine(
-                    "[yellow]⚠[/] {0} repositories no longer exist on disk:",
-                    missingRepos.Count);
-
-                foreach (var r in missingRepos)
-                {
-                    AnsiConsole.MarkupLine(
-                        "    [yellow]⚠[/] Repository [cyan]{0}[/] no longer exists. Run [cyan]`minorag prune`[/] to clean.",
-                        Markup.Escape(r.RootPath));
-                }
+                    "[yellow]⚠[/] {0} repositories no longer exist on disk. Run [cyan]`minorag prune`[/] to clean.",
+                    summary.MissingRepositories);
             }
 
-            var repoRoots = allRepos
-                .Where(r => !string.IsNullOrWhiteSpace(r.RootPath) && Directory.Exists(r.RootPath))
-                .ToDictionary(
-                    r => r.Id,
-                    r => r.RootPath!,
-                    comparer: EqualityComparer<int>.Default);
-
-            var indexedFiles = await db.Chunks
-                .AsNoTracking()
-                .Select(c => new { c.RepositoryId, c.Path })
-                .Distinct()
-                .ToListAsync(ct);
-
-            var missingFiles = new List<(int RepoId, string RepoRoot, string RelativePath)>();
-
-            foreach (var f in indexedFiles)
-            {
-                if (!repoRoots.TryGetValue(f.RepositoryId, out var root))
-                {
-                    continue;
-                }
-
-                var fullPath = Path.Combine(root, f.Path);
-
-                if (!File.Exists(fullPath))
-                {
-                    missingFiles.Add((f.RepositoryId, root, f.Path));
-                }
-            }
-
-            if (missingFiles.Count == 0)
+            if (summary.OrphanedFileRecords == 0)
             {
                 AnsiConsole.MarkupLine("[green]✔[/] All indexed files still exist on disk");
             }
             else
             {
                 AnsiConsole.MarkupLine(
-                    "[yellow]⚠[/] {0} indexed files no longer exist on disk:",
-                    missingFiles.Count);
+                    "[yellow]⚠ {0} indexed files no longer exist on disk. Run [cyan]`minorag prune`[/] or re-index affected repos.[/]",
+                    summary.OrphanedFileRecords);
 
-                foreach (var (RepoId, RepoRoot, RelativePath) in missingFiles.Take(10))
+                if (summary.MissingFileSamples is { Count: > 0 })
                 {
-                    var fullPath = Path.Combine(RepoRoot, RelativePath);
-                    AnsiConsole.MarkupLine(
-                        "    [yellow]⚠[/] Missing file [cyan]{0}[/] (repo root [blue]{1}[/])",
-                        Markup.Escape(RelativePath),
-                        Markup.Escape(RepoRoot));
-                }
+                    var toShow = summary.MissingFileSamples.ToList();
 
-                if (missingFiles.Count > 10)
-                {
-                    AnsiConsole.MarkupLine(
-                        "    [grey]… and {0} more. Run [cyan]`minorag index`[/] or [cyan]`minorag prune`[/] to refresh the index.[/]",
-                        missingFiles.Count - 10);
+                    foreach (var sample in toShow)
+                    {
+                        AnsiConsole.MarkupLine(
+                            "    [yellow]⚠[/] Missing file [cyan]{0}[/] (repo root [blue]{1}[/])",
+                            Markup.Escape(sample.RelativePath),
+                            Markup.Escape(sample.RepositoryRoot));
+                    }
+
+                    var remaining = summary.OrphanedFileRecords - toShow.Count;
+                    if (remaining > 0)
+                    {
+                        AnsiConsole.MarkupLine(
+                            "    [grey]… and {0} more. Run [cyan]`minorag prune`[/] to refresh the index.[/]",
+                            remaining);
+                    }
                 }
             }
         }

@@ -72,7 +72,7 @@
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "stopAtEntry": false,
-            "justMyCode": true,
+            "justMyCode": true
         },
         {
             "name": "Minorag: ask",
@@ -82,7 +82,7 @@
             "program": "${workspaceFolder}/src/Minorag.Cli/bin/Debug/net8.0/Minorag.Cli.dll",
             "args": [
                 "ask",
-                "${input:minoragQuestion}",
+                "${input:minoragQuestion}"
             ],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
@@ -118,6 +118,21 @@
             "args": [
                 "prompt",
                 "${input:minoragPromptQuestion}"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "justMyCode": true
+        },
+        {
+            "name": "Minorag: prune (dry-run)",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build Minorag.Cli",
+            "program": "${workspaceFolder}/src/Minorag.Cli/bin/Debug/net8.0/Minorag.Cli.dll",
+            "args": [
+                "prune",
+                "--dry-run"
             ],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
