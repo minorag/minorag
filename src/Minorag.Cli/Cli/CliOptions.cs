@@ -4,6 +4,18 @@ namespace Minorag.Cli.Cli;
 
 public static class CliOptions
 {
+    public static readonly Option<bool> DryRunOption =
+       new("--dry-run")
+       {
+           Description = "Show what would be removed without modifying the database."
+       };
+
+    public static readonly Option<bool> PruneOrphanOwnersOption =
+        new("--prune-orphan-owners")
+        {
+            Description = "Also prune clients and projects that have no repositories associated."
+        };
+
     public static readonly Option<bool> DeepOption =
         new("--deep")
         {
