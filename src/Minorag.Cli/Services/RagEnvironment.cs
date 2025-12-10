@@ -22,7 +22,6 @@ public static class RagEnvironment
 
     public static string GetDefaultDbPath()
     {
-        // Global DB under user's home dir: ~/.minorag/index.db
         var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         var ragDir = Path.Combine(home, ".minorag");
         Directory.CreateDirectory(ragDir);

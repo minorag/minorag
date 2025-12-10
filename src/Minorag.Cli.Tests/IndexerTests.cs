@@ -40,7 +40,7 @@ public class IndexerTests
         var indexer = new Indexer(store, embeddingProvider, ragOptions);
 
         // Act
-        await indexer.IndexAsync(root.FullName, false, CancellationToken.None);
+        await indexer.IndexAsync(root.FullName, reindex: false, excludePatterns: Array.Empty<string>(), CancellationToken.None);
 
         // Assert
         Assert.Single(store.InsertedChunks);
@@ -79,7 +79,7 @@ public class IndexerTests
         var indexer = new Indexer(store, embeddingProvider, ragOptions);
 
         // Act
-        await indexer.IndexAsync(root.FullName, false, CancellationToken.None);
+        await indexer.IndexAsync(root.FullName, reindex: false, excludePatterns: Array.Empty<string>(), CancellationToken.None);
 
         // Assert
         Assert.Empty(store.InsertedChunks);
@@ -110,7 +110,7 @@ public class IndexerTests
         var indexer = new Indexer(store, embeddingProvider, ragOptions);
 
         // Act
-        await indexer.IndexAsync(root.FullName, false, CancellationToken.None);
+        await indexer.IndexAsync(root.FullName, reindex: false, excludePatterns: Array.Empty<string>(), CancellationToken.None);
 
         // Assert
         Assert.Single(store.DeletedChunksForFile);
@@ -148,7 +148,7 @@ public class IndexerTests
         var indexer = new Indexer(store, embeddingProvider, ragOptions);
 
         // Act
-        await indexer.IndexAsync(root.FullName, false, CancellationToken.None);
+        await indexer.IndexAsync(root.FullName, reindex: false, excludePatterns: Array.Empty<string>(), CancellationToken.None);
 
         // Assert
         Assert.True(store.InsertedChunks.Count >= 2);
@@ -165,7 +165,118 @@ public class IndexerTests
     }
 
     // --------------------------------------------------------------------
-    // Local helpers (you can move these into TestInfrastructure later)
+    // NEW: ignore behavior
+    // --------------------------------------------------------------------
+
+    [Fact]
+    public async Task IndexAsync_RespectsMinoragIgnoreFile()
+    {
+        // Arrange
+        var root = CreateTempDir("indexer_minoragignore");
+
+        // .minoragignore:
+        //   generated/         -> ignore whole folder
+        //   *.skip.cs          -> ignore specific pattern
+        var ignoreContent = """
+generated/
+*.skip.cs
+""";
+        await File.WriteAllTextAsync(
+            Path.Combine(root.FullName, ".minoragignore"),
+            ignoreContent);
+
+        var srcDir = Directory.CreateDirectory(Path.Combine(root.FullName, "src"));
+        var genDir = Directory.CreateDirectory(Path.Combine(root.FullName, "generated"));
+
+        var includedFile = Path.Combine(srcDir.FullName, "include.cs");
+        var skippedByPattern = Path.Combine(srcDir.FullName, "should.skip.cs");
+        var skippedByDir = Path.Combine(genDir.FullName, "gen.cs");
+
+        await File.WriteAllTextAsync(includedFile, "// should be indexed");
+        await File.WriteAllTextAsync(skippedByPattern, "// should be ignored by pattern");
+        await File.WriteAllTextAsync(skippedByDir, "// should be ignored by directory rule");
+
+        var store = new IndexerFakeStore();
+        var embeddingProvider = new FakeEmbeddingProvider
+        {
+            EmbeddingToReturn = [1f]
+        };
+        var ragOptions = Options.Create(new RagOptions());
+        var indexer = new Indexer(store, embeddingProvider, ragOptions);
+
+        // Act
+        await indexer.IndexAsync(root.FullName, reindex: false, excludePatterns: Array.Empty<string>(), CancellationToken.None);
+
+        // Assert
+        // Only "src/include.cs" should be indexed
+        Assert.Single(store.InsertedChunks);
+
+        var chunk = store.InsertedChunks[0];
+        Assert.Equal(NormalizePath("src/include.cs"), NormalizePath(chunk.Path));
+
+        Assert.DoesNotContain(
+            store.InsertedChunks,
+            c => NormalizePath(c.Path).Contains("should.skip.cs", StringComparison.OrdinalIgnoreCase));
+
+        Assert.DoesNotContain(
+            store.InsertedChunks,
+            c => NormalizePath(c.Path).Contains("generated/gen.cs", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task IndexAsync_RespectsExcludePatternsFromCli()
+    {
+        // Arrange
+        var root = CreateTempDir("indexer_cli_exclude");
+
+        var srcDir = Directory.CreateDirectory(Path.Combine(root.FullName, "src"));
+        var genDir = Directory.CreateDirectory(Path.Combine(root.FullName, "gen"));
+
+        // src/app.cs                 -> should be indexed
+        // src/app.generated.cs       -> must be excluded via "*.generated.cs"
+        // gen/foo.cs                 -> must be excluded via "gen/**"
+        var includedFile = Path.Combine(srcDir.FullName, "app.cs");
+        var excludedGenerated = Path.Combine(srcDir.FullName, "app.generated.cs");
+        var excludedGen = Path.Combine(genDir.FullName, "foo.cs");
+
+        await File.WriteAllTextAsync(includedFile, "// normal app file");
+        await File.WriteAllTextAsync(excludedGenerated, "// generated file");
+        await File.WriteAllTextAsync(excludedGen, "// generated dir file");
+
+        var store = new IndexerFakeStore();
+        var embeddingProvider = new FakeEmbeddingProvider
+        {
+            EmbeddingToReturn = [1f]
+        };
+        var ragOptions = Options.Create(new RagOptions());
+        var indexer = new Indexer(store, embeddingProvider, ragOptions);
+
+        var excludePatterns = new[]
+        {
+            "gen/**",
+            "*.generated.cs"
+        };
+
+        // Act
+        await indexer.IndexAsync(root.FullName, reindex: false, excludePatterns, CancellationToken.None);
+
+        // Assert
+        Assert.Single(store.InsertedChunks);
+
+        var chunk = store.InsertedChunks[0];
+        Assert.Equal(NormalizePath("src/app.cs"), NormalizePath(chunk.Path));
+
+        Assert.DoesNotContain(
+            store.InsertedChunks,
+            c => NormalizePath(c.Path).EndsWith("app.generated.cs", StringComparison.OrdinalIgnoreCase));
+
+        Assert.DoesNotContain(
+            store.InsertedChunks,
+            c => NormalizePath(c.Path).StartsWith("gen/", StringComparison.OrdinalIgnoreCase));
+    }
+
+    // --------------------------------------------------------------------
+    // Local helpers
     // --------------------------------------------------------------------
 
     private static DirectoryInfo CreateTempDir(string name)

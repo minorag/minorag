@@ -46,7 +46,9 @@ public class SqliteStore(RagDbContext db) : ISqliteStore
         var repo = await GetRepositoryAsync(repoRoot, ct);
 
         if (repo is not null)
+        {
             return repo;
+        }
 
         repo = new Repository
         {
@@ -80,7 +82,9 @@ public class SqliteStore(RagDbContext db) : ISqliteStore
             .ToListAsync(ct);
 
         if (toDelete.Count == 0)
+        {
             return;
+        }
 
         db.Chunks.RemoveRange(toDelete);
         await db.SaveChangesAsync(ct);

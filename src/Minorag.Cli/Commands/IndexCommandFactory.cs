@@ -23,6 +23,7 @@ public static class IndexCommandFactory
         cmd.Add(CliOptions.ClientOption);
         cmd.Add(CliOptions.ProjectOption);
         cmd.Add(CliOptions.ReindexOption);
+        cmd.Add(CliOptions.ExcludeOption);
 
         cmd.SetAction(async (parseResult, cancellationToken) =>
         {
@@ -34,6 +35,8 @@ public static class IndexCommandFactory
 
             var clientName = parseResult.GetValue(CliOptions.ClientOption);
             var projectName = parseResult.GetValue(CliOptions.ProjectOption);
+            var reindex = parseResult.GetValue(CliOptions.ReindexOption);
+            var excludePatterns = parseResult.GetValue(CliOptions.ExcludeOption) ?? [];
 
             Console.WriteLine($"Indexing '{repoRoot.FullName}' → '{dbPath}'");
 
@@ -42,6 +45,7 @@ public static class IndexCommandFactory
 
             var dbContext = scope.ServiceProvider.GetRequiredService<RagDbContext>();
             var scopeService = scope.ServiceProvider.GetRequiredService<IIndexScopeService>();
+            var indexer = scope.ServiceProvider.GetRequiredService<IIndexer>();
 
             Repository repo;
             try
@@ -54,16 +58,14 @@ public static class IndexCommandFactory
             }
             catch (OperationCanceledException)
             {
-                Console.WriteLine("Aborting indexing. Repository mapping was not changed.");
                 return;
             }
 
-            var reindex = parseResult.GetValue(CliOptions.ReindexOption);
-
-            var indexer = scope.ServiceProvider.GetRequiredService<IIndexer>();
-            await indexer.IndexAsync(repoRoot.FullName, reindex, cancellationToken);
-
-            Console.WriteLine("Indexing completed.");
+            await indexer.IndexAsync(
+                repo.RootPath!,
+                reindex,
+                excludePatterns,
+                cancellationToken);
         });
 
         return cmd;
