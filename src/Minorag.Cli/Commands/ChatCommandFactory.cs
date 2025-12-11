@@ -47,7 +47,6 @@ public static class ChatCommandFactory
 
             var ragOptions = scope.ServiceProvider.GetRequiredService<IOptions<RagOptions>>();
             var scopeResolver = scope.ServiceProvider.GetRequiredService<ScopeResolver>();
-            var memory = scope.ServiceProvider.GetRequiredService<IConversation>();
 
             var explicitRepoNames = parseResult.GetValue(CliOptions.RepoNameOption) ?? [];
             var reposCsv = parseResult.GetValue(CliOptions.RepoNamesCsvOption);
@@ -89,7 +88,6 @@ public static class ChatCommandFactory
                 verbose,
                 noLlm,
                 useAdvancedModel,
-                memory,
                 ct);
         });
 
@@ -103,11 +101,11 @@ public static class ChatCommandFactory
             bool verbose,
             bool noLlm,
             bool useAdvancedModel,
-            IConversation memory,
             CancellationToken ct)
     {
         var searcher = provider.GetRequiredService<ISearcher>();
-        IConsoleSearchPresenter presenter = provider.GetRequiredService<IConsoleSearchPresenter>();
+        var presenter = provider.GetRequiredService<IConsoleSearchPresenter>();
+        var memory = provider.GetRequiredService<IConversation>();
 
         var buffer = new StringBuilder();
 

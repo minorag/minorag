@@ -99,11 +99,15 @@ public sealed class ConversationMemory(IEmbeddingProvider embeddingProvider, int
         }
 
         if (validCount == 0)
+        {
             return null;
+        }
 
         // Average
         for (var i = 0; i < dim; i++)
+        {
             sum[i] /= validCount;
+        }
 
         // Normalize to unit length
         var norm = MathF.Sqrt(sum.Sum(v => v * v));
@@ -114,7 +118,9 @@ public sealed class ConversationMemory(IEmbeddingProvider embeddingProvider, int
         }
 
         for (var i = 0; i < dim; i++)
+        {
             sum[i] /= norm;
+        }
 
         _cachedEmbedding = sum;
         return _cachedEmbedding;
