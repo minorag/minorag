@@ -11,41 +11,41 @@ public class OllamaChatClient(IOllamaClient ollama, IOptions<OllamaOptions> opti
     private readonly string _advancedModel = options.Value.AdvancedChatModel;
     private readonly double _temperature = options.Value.Temperature;
 
-    public async Task<string> AskAsync(
-        string question,
-        IReadOnlyList<CodeChunk> context,
-        CancellationToken ct)
-    {
-        var userPrompt = BuildPrompt(question, context);
-        return await ollama.ChatAsync(_model, _temperature, userPrompt, ct);
-    }
-
     public IAsyncEnumerable<string> AskStreamAsync(
         string question,
         bool useAdvancedModel,
         IReadOnlyList<CodeChunk> context,
+        string? memorySummary,
         CancellationToken ct)
     {
-        var userPrompt = BuildPrompt(question, context);
+        var prompt = BuildPrompt(question, context, memorySummary);
         var model = useAdvancedModel ? _advancedModel : _model;
-        return ollama.ChatStreamAsync(model, _temperature, userPrompt, ct);
+        return ollama.ChatStreamAsync(model, _temperature, prompt, ct);
     }
 
-    private static string BuildPrompt(string question, IReadOnlyList<CodeChunk> context)
+    private static string BuildPrompt(
+        string question,
+        IReadOnlyList<CodeChunk> context,
+        string? memory = null)
     {
         var contextText = BuildContextBlock(context);
+        var sb = new StringBuilder();
 
-        var userPrompt = new StringBuilder()
-            .AppendLine("You are a senior software engineer helping a teammate work with the codebase.")
-            .AppendLine("=== CONTEXT START ===")
-            .AppendLine(contextText)
-            .AppendLine("=== CONTEXT END ===")
-            .AppendLine()
-            .AppendLine("Question:")
-            .AppendLine(question)
-            .ToString();
+        sb.AppendLine("You are a senior software engineer helping a teammate understand the codebase.");
 
-        return userPrompt;
+        if (!string.IsNullOrWhiteSpace(memory))
+        {
+            sb.AppendLine(memory);
+        }
+
+        sb.AppendLine("=== CONTEXT START ===")
+          .AppendLine(contextText)
+          .AppendLine("=== CONTEXT END ===")
+          .AppendLine()
+          .AppendLine("Question:")
+          .AppendLine(question);
+
+        return sb.ToString();
     }
 
     private static string BuildContextBlock(IReadOnlyList<CodeChunk> chunks)

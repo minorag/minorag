@@ -63,3 +63,5 @@ riderModule.iml
 *.DotSettings.user
 
 appsettings.local.json
+
+.DS_Store
