@@ -10,21 +10,11 @@ public class FakeLlmClient : ILlmClient
     public IReadOnlyList<CodeChunk>? LastContext { get; private set; }
     public string AnswerToReturn { get; set; } = string.Empty;
 
-    public Task<string> AskAsync(
-        string question,
-        IReadOnlyList<CodeChunk> context,
-        CancellationToken ct = default)
-    {
-        WasCalled = true;
-        LastQuestion = question;
-        LastContext = context;
-        return Task.FromResult(AnswerToReturn);
-    }
-
     public IAsyncEnumerable<string> AskStreamAsync(
         string question,
         bool useAdvancedModel,
         IReadOnlyList<CodeChunk> context,
+        string? memory,
         CancellationToken ct)
     {
         throw new NotImplementedException();

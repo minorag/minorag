@@ -119,61 +119,6 @@ public class SearcherTests
         Assert.Equal(3, context.Chunks.Count);
     }
 
-    [Fact]
-    public async Task AnswerAsync_NoResultsOrUseLlmFalse_DoesNotCallLlm_ReturnsNullAnswer()
-    {
-        // Arrange
-        var store = new SearchFakeStore();
-        var embedding = new FakeEmbeddingProvider();
-        var llm = new FakeLlmClient();
-        var searcher = new Searcher(store, embedding, llm);
-
-        var emptyContext = new SearchContext("q", []);
-
-        // Act
-        var result1 = await searcher.AnswerAsync(emptyContext, useLlm: true, ct: CancellationToken.None);
-        var result2 = await searcher.AnswerAsync(emptyContext, useLlm: false, ct: CancellationToken.None);
-
-        // Assert
-        Assert.Null(result1.Answer);
-        Assert.Null(result2.Answer);
-        Assert.False(llm.WasCalled);
-    }
-
-    [Fact]
-    public async Task AnswerAsync_WithResultsAndUseLlmTrue_CallsLlmAndReturnsAnswer()
-    {
-        // Arrange
-        var store = new SearchFakeStore();
-        var embedding = new FakeEmbeddingProvider();
-        var llm = new FakeLlmClient
-        {
-            AnswerToReturn = "This is the answer"
-        };
-        var searcher = new Searcher(store, embedding, llm);
-
-        var chunk = TestChunkFactory.CreateChunk(
-            id: 1L,
-            embedding: [1f, 0f]
-        );
-
-        var scored = new ScoredChunk(chunk, 0.9f);
-        var context = new SearchContext("What does it do?", [scored]);
-
-        // Act
-        var result = await searcher.AnswerAsync(context, useLlm: true, ct: CancellationToken.None);
-
-        // Assert
-        Assert.True(llm.WasCalled);
-        Assert.Equal("What does it do?", llm.LastQuestion);
-        Assert.Single(llm.LastContext!);
-        Assert.Equal(chunk, llm.LastContext![0]);
-
-        Assert.Equal("What does it do?", result.Question);
-        Assert.Same(context.Chunks, result.Chunks);
-        Assert.Equal("This is the answer", result.Answer);
-    }
-
     // --------------------------------------------------------------------
     // Test doubles
     // --------------------------------------------------------------------

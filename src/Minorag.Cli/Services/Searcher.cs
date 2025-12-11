@@ -13,16 +13,13 @@ public interface ISearcher
         bool verbose,
         List<int>? repositoryIds = null,
         int topK = 7,
-        CancellationToken ct = default);
-
-    Task<SearchResult> AnswerAsync(
-        SearchContext context,
-        bool useLlm = true,
+        float[]? memoryEmbedding = null,
         CancellationToken ct = default);
 
     IAsyncEnumerable<string> AnswerStreamAsync(
         SearchContext context,
         bool useLlm = true,
+        string? memorySummary = null,
         CancellationToken ct = default);
 }
 
@@ -50,6 +47,7 @@ public class Searcher(
     bool verbose,
     List<int>? repositoryIds = null,
     int topK = 7,
+    float[]? memoryEmbedding = null,
     CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(question))
@@ -57,13 +55,13 @@ public class Searcher(
             throw new ArgumentException("Question is empty.", nameof(question));
         }
 
-        // Optional path hint extracted from the question text
+        // 1. Base embedding: current question
+        var queryEmbedding = await embeddingProvider.EmbedAsync(question.Trim(), ct);
+
         var pathHint = ExtractPathHint(question);
 
-        // 1. Embed the question
-        var queryEmbedding = await embeddingProvider.EmbedAsync(question, ct);
+        BlendMemoryEmbedding(memoryEmbedding, queryEmbedding);
 
-        // 2. Score all chunks by cosine similarity
         var scored = new List<(CodeChunk Chunk, float Score)>();
 
         await foreach (var chunk in store.GetAllChunksAsync(verbose, repositoryIds, ct))
@@ -71,29 +69,19 @@ public class Searcher(
             if (chunk.Embedding.Length == 0)
                 continue;
 
-            if (chunk.Embedding.Length != queryEmbedding.Length)
-                continue;
+            var score = CosineSimilarity(chunk.Embedding, queryEmbedding);
 
-            var score = CosineSimilarity(queryEmbedding, chunk.Embedding);
-
-            // ---- path-based score boost (soft preference) ----
-            var boostedScore = score;
-
-            if (!string.IsNullOrEmpty(pathHint))
+            if (pathHint is not null &&
+                chunk.Path is not null &&
+                chunk.Path.Contains(pathHint, StringComparison.OrdinalIgnoreCase))
             {
-                var path = chunk.Path ?? string.Empty;
-
-                if (path.Contains(pathHint, StringComparison.OrdinalIgnoreCase))
-                {
-                    const float boostFactor = 1.2f;
-                    boostedScore = score * boostFactor;
-
-                    if (boostedScore > 1f)
-                        boostedScore = 1f;
-                }
+                score += 0.05f;
             }
 
-            scored.Add((chunk, boostedScore));
+            if (score > 0f)
+            {
+                scored.Add((chunk, score));
+            }
         }
 
         if (scored.Count == 0)
@@ -113,6 +101,7 @@ public class Searcher(
     public async IAsyncEnumerable<string> AnswerStreamAsync(
            SearchContext context,
            bool useLlm = true,
+           string? memory = null,
            [EnumeratorCancellation] CancellationToken ct = default)
     {
         if (!context.HasResults || !useLlm)
@@ -128,6 +117,7 @@ public class Searcher(
                 context.Question,
                 context.UseAdvancedModel,
                 contextChunks,
+                memory,
                 ct)
                 .WithCancellation(ct))
         {
@@ -135,23 +125,28 @@ public class Searcher(
         }
     }
 
-    public async Task<SearchResult> AnswerAsync(
-        SearchContext context,
-        bool useLlm = true,
-        CancellationToken ct = default)
+    private static void BlendMemoryEmbedding(float[]? memoryEmbedding, float[] queryEmbedding)
     {
-        if (!context.HasResults || !useLlm)
+        if (memoryEmbedding is { Length: > 0 } mem &&
+            mem.Length == queryEmbedding.Length)
         {
-            return new SearchResult(context.Question, context.Chunks, null);
+            const float alpha = 0.7f;
+
+            for (var i = 0; i < queryEmbedding.Length; i++)
+            {
+                queryEmbedding[i] =
+                    alpha * queryEmbedding[i] +
+                    (1 - alpha) * mem[i];
+            }
+
+            // Re-normalize
+            var norm = MathF.Sqrt(queryEmbedding.Sum(v => v * v));
+            if (norm > 0f)
+            {
+                for (var i = 0; i < queryEmbedding.Length; i++)
+                    queryEmbedding[i] /= norm;
+            }
         }
-
-        var contextChunks = context.Chunks
-            .Select(t => t.Chunk)
-            .ToList();
-
-        var answer = await llmClient.AskAsync(context.Question, contextChunks, ct);
-
-        return new SearchResult(context.Question, context.Chunks, answer);
     }
 
     private static float CosineSimilarity(float[] a, float[] b)

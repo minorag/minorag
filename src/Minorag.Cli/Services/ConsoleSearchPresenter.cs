@@ -1,5 +1,4 @@
 using System.Text;
-using System.Text.RegularExpressions;
 using Minorag.Cli.Models;
 using Spectre.Console;
 
@@ -14,9 +13,9 @@ public interface IConsoleSearchPresenter
        CancellationToken ct = default);
 }
 
-public class ConsoleSearchPresenter : IConsoleSearchPresenter
+public partial class ConsoleSearchPresenter : IConsoleSearchPresenter
 {
-    private const string SeparatorColor = "silver";       // lighter than grey
+    private const string SeparatorColor = "silver";  // lighter than grey
     private const string CodeColor = "cyan";         // for inline code
     private const string MetaColor = "grey70";
 
@@ -98,8 +97,8 @@ public class ConsoleSearchPresenter : IConsoleSearchPresenter
     }
 
     public async Task PresentAnswerStreamingAsync(
-     IAsyncEnumerable<string> answerStream,
-     CancellationToken ct = default)
+        IAsyncEnumerable<string> answerStream,
+        CancellationToken ct = default)
     {
         AnsiConsole.WriteLine();
         AnsiConsole.MarkupLine($"[{SeparatorColor}]" + new string('=', 80) + "[/]");
@@ -403,40 +402,17 @@ public class ConsoleSearchPresenter : IConsoleSearchPresenter
         return true;
     }
 
-    /// <summary>
-    /// Simple Markdown → Spectre markup for table cells:
-    /// - **bold**
-    /// - *italic*
-    /// - `code` (colored)
-    /// - <br> → newline
-    /// </summary>
     private static string FormatTableCell(string text, bool isHeader)
     {
         if (string.IsNullOrWhiteSpace(text))
             return string.Empty;
 
         var t = text.Replace("\r\n", "\n");
+        t = RegexHelper.HtmlLineBreaksRegex.Replace(t, "\n");
 
-        // HTML line breaks → real newlines
-        t = Regex.Replace(t, @"<br\s*/?>", "\n", RegexOptions.IgnoreCase);
-
-        // 🔐 Escape all Spectre markup chars *before* adding our own
         t = Markup.Escape(t);
+        t = ApplyInlineMarkdown(t, forBlock: false);
 
-        // Inline code: `IOcrClient` → [cyan]IOcrClient[/]
-        t = Regex.Replace(t, "`([^`]+)`", "[cyan]$1[/]");
-
-        // Bold: **External service clients** → [bold]External service clients[/]
-        t = Regex.Replace(t, @"\*\*(.+?)\*\*", "[bold]$1[/]");
-
-        // Italic: *text* → [italic]text[/]
-        t = Regex.Replace(
-            t,
-            @"(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)",
-            "[italic]$1[/]"
-        );
-
-        // Make headers bold if they aren't already
         if (isHeader && !t.Contains("[bold]"))
         {
             t = "[bold]" + t + "[/]";
@@ -461,31 +437,36 @@ public class ConsoleSearchPresenter : IConsoleSearchPresenter
 
         var text = markdown.Replace("\r\n", "\n");
 
-        // HTML line breaks → real newlines
-        text = Regex.Replace(text, @"<br\s*/?>", "\n", RegexOptions.IgnoreCase);
+        text = RegexHelper.HtmlLineBreaksRegex.Replace(text, "\n");
 
-        // Headings: #, ##, ### → bold/underline variants
-        text = Regex.Replace(text, @"^###\s+(.+)$", "[bold underline]$1[/]", RegexOptions.Multiline);
-        text = Regex.Replace(text, @"^##\s+(.+)$", "[bold underline]$1[/]", RegexOptions.Multiline);
-        text = Regex.Replace(text, @"^#\s+(.+)$", "[bold underline]$1[/]", RegexOptions.Multiline);
+        text = Markup.Escape(text);
 
-        // Bold: **text** → [bold]text[/]
-        text = Regex.Replace(text, @"\*\*(.+?)\*\*", "[bold]$1[/]");
+        text = RegexHelper.HeadingsH3Regex.Replace(text, "[bold underline]$1[/]");
+        text = RegexHelper.HeadingsH2Regex.Replace(text, "[bold underline]$1[/]");
+        text = RegexHelper.HeadingsH1Regex.Replace(text, "[bold underline]$1[/]");
 
-        // Italic: *text* → [italic]text[/]
-        text = Regex.Replace(
-            text,
-            @"(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)",
-            "[italic]$1[/]"
-        );
+        text = ApplyInlineMarkdown(text, forBlock: true);
 
-        // Inline code: `code`
-        text = Regex.Replace(text, "`([^`]+)`", "[orange1]`$1`[/]");
-
-        // Bullet points: - foo / * foo → • foo
-        text = Regex.Replace(text, @"^(\s*)- ", "$1• ", RegexOptions.Multiline);
-        text = Regex.Replace(text, @"^(\s*)\* ", "$1• ", RegexOptions.Multiline);
+        text = RegexHelper.BulletHyphenRegex.Replace(text, "$1• ");
+        text = RegexHelper.BulletStarRegex.Replace(text, "$1• ");
 
         return text;
     }
+
+    /// <summary>
+    /// Shared inline markdown → Spectre pipeline:
+    /// - **bold**
+    /// - *italic*
+    /// - `code` (colored)
+    /// Works for both full blocks and table cells.
+    /// </summary>
+    private static string ApplyInlineMarkdown(string text, bool forBlock)
+    {
+        text = RegexHelper.InlineCodeRegex.Replace(text, $"[{CodeColor}]$1[/]");
+        text = RegexHelper.BoldRegex.Replace(text, "[bold]$1[/]");
+        text = RegexHelper.ItalicRegex.Replace(text, "[italic]$1[/]");
+
+        return text;
+    }
+
 }

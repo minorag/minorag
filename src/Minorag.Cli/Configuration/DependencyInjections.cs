@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 using Minorag.Cli.Models.Options;
+using Minorag.Cli.Services.Chat;
 
 namespace Minorag.Cli.Configuration;
 
@@ -48,6 +49,11 @@ public static class DependencyInjections
         services.AddScoped<IEnvironmentDoctor, EnvironmentDoctor>();
         services.AddScoped<IIndexPruner, IndexPruner>();
         services.AddScoped<IIndexScopeService, IndexScopeService>();
+        services.AddSingleton<IConversation>(sp =>
+        {
+            var provider = sp.GetRequiredService<IEmbeddingProvider>();
+            return new ConversationMemory(provider, maxTurns: 10);
+        });
 
         return services;
     }
