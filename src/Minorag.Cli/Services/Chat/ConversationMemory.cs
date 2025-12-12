@@ -1,3 +1,4 @@
+using System.Text;
 using Minorag.Cli.Providers;
 
 namespace Minorag.Cli.Services.Chat;
@@ -16,6 +17,8 @@ public interface IConversation
 
     Task<float[]?> GetCombinedEmbedding(CancellationToken ct);
 
+    string? GetPromptMemory(int maxChars, int maxTurns);
+
     void Clear();
 }
 
@@ -29,6 +32,35 @@ public sealed class ConversationMemory(IEmbeddingProvider embeddingProvider, int
     {
         _turns.Clear();
         _cachedEmbedding = null;
+    }
+
+    public string? GetPromptMemory(int maxChars, int maxTurns)
+    {
+        if (_turns.Count == 0)
+            return null;
+
+        // Use GetRecent() (most recent first), then render oldest->newest for readability
+        var recent = GetRecent(Math.Min(maxTurns, _maxTurns));
+        if (recent.Count == 0)
+            return null;
+
+        var sb = new StringBuilder();
+
+        for (var i = recent.Count - 1; i >= 0; i--)
+        {
+            var (q, a) = recent[i];
+
+            sb.AppendLine($"User: {Clip(q, 1200)}");
+            sb.AppendLine($"Assistant: {Clip(a, 3000)}");
+            sb.AppendLine();
+        }
+
+        var text = sb.ToString().Trim();
+        if (text.Length <= maxChars)
+            return text;
+
+        // Keep tail (most recent content)
+        return text[^maxChars..];
     }
 
     public void AddTurn(string question, string answer)
@@ -124,5 +156,13 @@ public sealed class ConversationMemory(IEmbeddingProvider embeddingProvider, int
 
         _cachedEmbedding = sum;
         return _cachedEmbedding;
+    }
+
+    private static string Clip(string s, int max)
+    {
+        s ??= "";
+        s = s.Trim();
+        if (s.Length <= max) return s;
+        return s[..max] + "…";
     }
 }

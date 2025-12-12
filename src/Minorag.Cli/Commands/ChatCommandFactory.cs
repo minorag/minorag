@@ -386,9 +386,13 @@ public static class ChatCommandFactory
         if (!noLlm && context.HasResults)
         {
             var answerBuffer = new StringBuilder();
+            var memorySummary = memory.GetPromptMemory(
+                    maxChars: 24_000,
+                    maxTurns: 8);
+
             await presenter.PresentAnswerStreamingAsync(
                 TeeStream(
-                    searcher.AnswerStreamAsync(context, true, null, ct),
+                    searcher.AnswerStreamAsync(context, true, memorySummary, ct),
                     answerBuffer,
                     ct),
                 ct);
@@ -425,7 +429,11 @@ public static class ChatCommandFactory
     {
         await foreach (var piece in source.WithCancellation(ct))
         {
-            sink.Append(piece);
+            if (!string.IsNullOrWhiteSpace(piece))
+            {
+                sink.Append(piece);
+            }
+
             yield return piece;
         }
     }
