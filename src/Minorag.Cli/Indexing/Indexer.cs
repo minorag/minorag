@@ -50,7 +50,7 @@ public class Indexer(
         if (totalIgnoredFiles > 0)
         {
             console.WriteMarkupLine(
-                "[cyan]Ignored[/] [yellow]{0}[/] [cyan]paths via .minoragignore / --exclude (files: {1}, dirs: {2}).[/]",
+                "[cyan]Ignored[/] [yellow]{0}[/] [cyan]paths via [/] [yellow].minoragignore [/] / [yellow] --exclude [/] [cyan](files: {1}, dirs: {2}).[/]",
                 totalIgnoredFiles,
                 ignoredFilesCount,
                 ignoredDirsCount);
