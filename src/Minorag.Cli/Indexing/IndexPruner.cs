@@ -10,11 +10,28 @@ public interface IIndexPruner
         bool dryRun,
         bool pruneOrphanOwners,
         CancellationToken ct);
+
+    Task<DatabaseStatus> CalculateStatus(CancellationToken ct);
 }
 
 public sealed class IndexPruner(RagDbContext db) : IIndexPruner
 {
     private const int MaxMissingFileSamples = 50;
+
+    public async Task<DatabaseStatus> CalculateStatus(CancellationToken ct)
+    {
+        var totalRepos = await db.Repositories.CountAsync(ct);
+        var totalChunks = await db.Chunks.CountAsync(ct);
+        var totalClients = await db.Clients.CountAsync(ct);
+        var totalProjects = await db.Projects.CountAsync(ct);
+        var totalFiles = await db.Chunks
+                                    .AsNoTracking()
+                                    .Select(c => c.Path)
+                                    .Distinct()
+                                    .CountAsync(ct);
+
+        return new DatabaseStatus(totalClients, totalProjects, totalRepos, totalFiles, totalChunks);
+    }
 
     public async Task<PruneSummary> PruneAsync(
         bool dryRun,
@@ -24,20 +41,17 @@ public sealed class IndexPruner(RagDbContext db) : IIndexPruner
         // -------------------------------------------------------------
         // Basic counts / empty index detection
         // -------------------------------------------------------------
-        var totalRepos = await db.Repositories.LongCountAsync(ct);
-        var totalChunks = await db.Chunks.LongCountAsync(ct);
-        var totalClients = await db.Clients.LongCountAsync(ct);
-        var totalProjects = await db.Projects.LongCountAsync(ct);
+        var status = await CalculateStatus(ct);
 
-        if (totalRepos == 0 && totalChunks == 0)
+        if (status.TotalRepos == 0 && status.TotalChunks == 0)
         {
             return new PruneSummary(
                 DatabaseMissing: false,
                 IndexEmpty: true,
-                TotalRepositories: totalRepos,
-                TotalChunks: totalChunks,
-                TotalClients: totalClients,
-                TotalProjects: totalProjects,
+                TotalRepositories: status.TotalRepos,
+                TotalChunks: status.TotalChunks,
+                TotalClients: status.TotalClients,
+                TotalProjects: status.TotalProjects,
                 MissingRepositories: 0,
                 OrphanedFileRecords: 0,
                 OrphanProjects: 0,
@@ -60,8 +74,6 @@ public sealed class IndexPruner(RagDbContext db) : IIndexPruner
         var existingRepoRoots = allRepos
             .Where(r => !string.IsNullOrWhiteSpace(r.RootPath) && Directory.Exists(r.RootPath))
             .ToDictionary(r => r.Id, r => r.RootPath!);
-
-
 
         // -------------------------------------------------------------
         // Files that no longer exist on disk (for existing repos)
@@ -185,10 +197,10 @@ public sealed class IndexPruner(RagDbContext db) : IIndexPruner
         return new PruneSummary(
             DatabaseMissing: false,
             IndexEmpty: false,
-            TotalRepositories: totalRepos,
-            TotalChunks: totalChunks,
-            TotalClients: totalClients,
-            TotalProjects: totalProjects,
+            TotalRepositories: status.TotalRepos,
+            TotalChunks: status.TotalChunks,
+            TotalClients: status.TotalClients,
+            TotalProjects: status.TotalProjects,
             MissingRepositories: missingRepos.Count,
             OrphanedFileRecords: orphanedFileRecordsCount,
             OrphanProjects: orphanProjectsCount,
