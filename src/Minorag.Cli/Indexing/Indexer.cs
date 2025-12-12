@@ -136,7 +136,10 @@ public class Indexer(
         {
             ct.ThrowIfCancellationRequested();
 
-            console.WriteMarkupLine($"  [green]➕ Indexing chunk {chunkIndex + 1} of {chunks.Length}: [/] Length: {chunkContent.Length}");
+            if (chunks.Length > 1)
+            {
+                console.WriteMarkupLine($"  [green]➕ Indexing chunk {chunkIndex + 1} of {chunks.Length}: [/] Length: {chunkContent.Length}");
+            }
 
             var chunk = new CodeChunk
             {

@@ -17,11 +17,19 @@ public interface IMinoragConsole
     void PrintSeparator(string? color = null);
     void DrawPrompt();
     string EscapeMarkup(string text);
+    void EnableBracketedPaste();
+    void DisableBracketedPaste();
 }
 
 public class MinoragConsole : IMinoragConsole
 {
     private static readonly string Separator = new('=', 80);
+
+    public void EnableBracketedPaste() =>
+        Console.Write("\x1b[?2004h");
+
+    public void DisableBracketedPaste() =>
+        Console.Write("\x1b[?2004l");
 
     public string EscapeMarkup(string text)
     {

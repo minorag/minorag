@@ -11,6 +11,7 @@ using Microsoft.Extensions.Options;
 using Minorag.Cli.Models.Options;
 using Minorag.Cli.Services.Chat;
 using Minorag.Cli.Services.Environments;
+using Minorag.Cli.Services.Cli;
 
 namespace Minorag.Cli.Configuration;
 
@@ -52,6 +53,10 @@ public static class DependencyInjections
         services.AddScoped<DatabaseValidatorFactory>();
         services.AddScoped<IgnoreRulesValidatorFactory>();
         services.AddScoped<OllamaValidator>();
+
+        services.AddScoped<IChat, Chat>();
+        services.AddScoped<IChatCommandHandler, ChatCommandHandler>();
+        services.AddSingleton<IConsoleInputProvider, ConsoleInputProvider>();
 
         services.AddScoped<IIndexPruner, IndexPruner>();
         services.AddScoped<IIndexScopeService, IndexScopeService>();
