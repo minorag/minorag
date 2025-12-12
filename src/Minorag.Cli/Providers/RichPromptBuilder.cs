@@ -1,4 +1,5 @@
 using System.Text;
+using Minorag.Cli.Configuration;
 using Minorag.Cli.Models.Domain;
 
 namespace Minorag.Cli.Providers;
@@ -6,8 +7,6 @@ namespace Minorag.Cli.Providers;
 public sealed class RichPromptBuilder(string systemPrompt = RichPromptBuilder.DefaultSystemPrompt) : IPromptBuilder
 {
     private const int PromptBudgetTokens = 120_000;
-    private const int DefaultMaxSnippetLength = 2000;
-
     private const string DefaultSystemPrompt = @"
         ## SYSTEM
         You are a senior software engineer helping a teammate understand a codebase.
@@ -16,6 +15,7 @@ public sealed class RichPromptBuilder(string systemPrompt = RichPromptBuilder.De
         - If something is missing, say what is missing and what file/symbol would be needed.
         - Prefer pointing to exact file paths and symbol names from CONTEXT.
         - When unsure, ask for the next most relevant file or chunk.
+        - When reply code try do it copy paste ready, so user does not have to modify it after.
         ";
 
     private const string Separator = "---";
@@ -31,7 +31,7 @@ public sealed class RichPromptBuilder(string systemPrompt = RichPromptBuilder.De
         var plan = new FitPlan(
             MemoryTailChars: 24_000,
             TakeChunks: context.Count,
-            SnippetChars: DefaultMaxSnippetLength);
+            SnippetChars: DefaultValues.MaxChunkSize);
 
         foreach (var candidate in BuildCandidates(plan, context.Count))
         {

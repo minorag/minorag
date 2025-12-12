@@ -44,6 +44,8 @@ public static class AskCommandFactory
             using var scope = host.Services.CreateScope();
 
             var searcher = scope.ServiceProvider.GetRequiredService<ISearcher>();
+            var console = scope.ServiceProvider.GetRequiredService<IMinoragConsole>();
+
             var presenter = scope.ServiceProvider.GetRequiredService<IConsoleSearchPresenter>();
             var ragOptions = scope.ServiceProvider.GetRequiredService<IOptions<RagOptions>>();
 
@@ -72,10 +74,7 @@ public static class AskCommandFactory
             }
             catch (Exception ex)
             {
-                // Pretty CLI error instead of ugly stack trace
-                AnsiConsole.WriteLine();
-                AnsiConsole.MarkupLine("[red]Error:[/] {0}", Markup.Escape(ex.Message.TrimEnd()));
-                AnsiConsole.WriteLine();
+                console.WriteError(ex);
 
                 Environment.ExitCode = 1;
                 return;

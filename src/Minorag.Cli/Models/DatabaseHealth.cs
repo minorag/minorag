@@ -5,4 +5,5 @@ public record DatabaseStatus(
     int TotalProjects,
     int TotalRepos,
     int TotalFiles,
-    int TotalChunks);
+    int TotalChunks,
+    int OrphanedChunks);

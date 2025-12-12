@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Minorag.Cli.Models.Domain;
+using Minorag.Cli.Services;
 using Minorag.Cli.Store;
 using Spectre.Console;
 
@@ -14,7 +15,7 @@ public interface IIndexScopeService
         CancellationToken ct);
 }
 
-public sealed class IndexScopeService(RagDbContext db) : IIndexScopeService
+public sealed class IndexScopeService(RagDbContext db, IMinoragConsole console) : IIndexScopeService
 {
     public async Task<Repository> EnsureClientProjectRepoAsync(
          DirectoryInfo repoRoot,
@@ -72,8 +73,8 @@ public sealed class IndexScopeService(RagDbContext db) : IIndexScopeService
         db.Clients.Add(client);
         await db.SaveChangesAsync(ct);
 
-        AnsiConsole.MarkupLine(
-            $"[green]➕ Created client[/] [cyan]{Escape(client.Name)}[/] ([grey]{client.Slug}[/])");
+        console.WriteMarkupLine(
+            $"[green]➕ Created client[/] [cyan]{client.Name}[/] ([grey]{client.Slug}[/])");
 
         return client;
     }
@@ -124,9 +125,9 @@ public sealed class IndexScopeService(RagDbContext db) : IIndexScopeService
         db.Projects.Add(project);
         await db.SaveChangesAsync(ct);
 
-        AnsiConsole.MarkupLine(
-            $"[green]➕ Created project[/] [cyan]{Escape(project.Name)}[/] " +
-            $"for client [blue]{Escape(owningClient.Name)}[/] ([grey]{project.Slug}[/])");
+        console.WriteMarkupLine(
+            $"[green]➕ Created project[/] [cyan]{project.Name}[/] " +
+            $"for client [blue]{owningClient.Name}[/] ([grey]{project.Slug}[/])");
 
         return new ProjectResolution(project, owningClient);
     }
@@ -153,8 +154,7 @@ public sealed class IndexScopeService(RagDbContext db) : IIndexScopeService
         db.Clients.Add(client);
         await db.SaveChangesAsync(ct);
 
-        AnsiConsole.MarkupLine(
-            $"[green]➕ Created default client[/] [cyan]{Escape(client.Name)}[/]");
+        console.WriteMarkupLine($"[green]➕ Created default client[/] [cyan]{client.Name}[/]");
 
         return client;
     }
@@ -185,8 +185,8 @@ public sealed class IndexScopeService(RagDbContext db) : IIndexScopeService
             db.Repositories.Add(repo);
             await db.SaveChangesAsync(ct);
 
-            AnsiConsole.MarkupLine(
-                $"[green]➕ Registered repository[/] [cyan]{Escape(repo.Name)}[/]");
+            console.WriteMarkupLine(
+                $"[green]➕ Registered repository[/] [cyan]{repo.Name}[/]");
 
             return repo;
         }
@@ -209,42 +209,42 @@ public sealed class IndexScopeService(RagDbContext db) : IIndexScopeService
         var oldClientName = repo.Project?.Client?.Name ?? "(none)";
         var newClientName = desiredClient?.Name ?? oldClientName;
 
-        AnsiConsole.MarkupLine(
-            $"[yellow]Repository[/] [cyan]{Escape(repo.Name)}[/] " +
+        console.WriteMarkupLine(
+            $"[yellow]Repository[/] [cyan]{repo.Name}[/] " +
             $"[yellow]is currently attached to[/] " +
-            $"project [blue]{Escape(oldProjectName)}[/] (client [magenta]{Escape(oldClientName)}[/]).");
+            $"project [blue]{oldProjectName}[/] (client [magenta]{oldClientName}[/]).");
 
         AnsiConsole.Markup(
-            $"Reassign to project [blue]{Escape(desiredProject.Name)}[/] " +
-            $"(client [magenta]{Escape(newClientName)}[/])? " +
+            $"Reassign to project [blue]{desiredProject.Name}[/] " +
+            $"(client [magenta]{newClientName}[/])? " +
             "[grey][[y/N]]:[/] ");
 
         var answer = Console.ReadLine();
         if (!IsYes(answer))
         {
-            AnsiConsole.MarkupLine("[yellow]Aborting indexing.[/] Repository mapping was not changed.");
+            console.WriteMarkupLine("[yellow]Aborting indexing.[/] Repository mapping was not changed.");
             throw new OperationCanceledException("User declined repository reassignment.");
         }
 
         repo.ProjectId = desiredProject.Id;
         await db.SaveChangesAsync(ct);
 
-        AnsiConsole.MarkupLine(
-            $"[green]✔ Repository[/] [cyan]{Escape(repo.Name)}[/] " +
-            $"[green]reassigned to project[/] [blue]{Escape(desiredProject.Name)}[/].");
+        console.WriteMarkupLine(
+            $"[green]✔ Repository[/] [cyan]{repo.Name}[/] " +
+            $"[green]reassigned to project[/] [blue]{desiredProject.Name}[/].");
     }
 
-    private static void PrintScopeSummary(Repository repo, Project? project, Client? client)
+    private void PrintScopeSummary(Repository repo, Project? project, Client? client)
     {
-        var repoPart = $"[cyan]{Escape(repo.Name)}[/] (id={repo.Id})";
+        var repoPart = $"[cyan]{repo.Name}[/] (id={repo.Id})";
         var projectPart = project is not null
-            ? $"project [blue]{Escape(project.Name)}[/]"
+            ? $"project [blue]{project.Name}[/]"
             : "project [grey](none)[/]";
         var clientPart = client is not null
-            ? $"client [magenta]{Escape(client.Name)}[/]"
+            ? $"client [magenta]{client.Name}[/]"
             : "client [grey](none)[/]";
 
-        AnsiConsole.MarkupLine(
+        console.WriteMarkupLine(
             $"[grey]Scope:[/] repo {repoPart}, {projectPart}, {clientPart}");
     }
 
@@ -282,9 +282,6 @@ public sealed class IndexScopeService(RagDbContext db) : IIndexScopeService
 
         return sb.Length == 0 ? "unnamed" : sb.ToString();
     }
-
-    private static string Escape(string? text)
-        => text is null ? string.Empty : Markup.Escape(text);
 
     private sealed record ProjectResolution(Project? Project, Client? Client);
 }

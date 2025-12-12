@@ -2,6 +2,7 @@ using System.CommandLine;
 using Microsoft.Extensions.DependencyInjection;
 using Minorag.Cli.Cli;
 using Minorag.Cli.Hosting;
+using Minorag.Cli.Indexing;
 using Minorag.Cli.Services;
 using Minorag.Cli.Store;
 using Spectre.Console;
@@ -28,9 +29,15 @@ public static class RepoRmCommandFactory
             var repoRoot = repoDir ?? RagEnvironment.GetRepoRootOrCurrent();
             var dbPath = dbFile?.FullName ?? RagEnvironment.GetDefaultDbPath();
 
-            if (!File.Exists(dbPath))
+            using var host = HostFactory.BuildHost(dbPath);
+            using var scope = host.Services.CreateScope();
+
+            var console = scope.ServiceProvider.GetRequiredService<IMinoragConsole>();
+            var fs = scope.ServiceProvider.GetRequiredService<IFileSystemHelper>();
+
+            if (!fs.FileExists(dbPath))
             {
-                AnsiConsole.MarkupLine(
+                console.WriteMarkupLine(
                     $"[red]No index database found at[/] [yellow]{Markup.Escape(dbPath)}[/]. " +
                     "Run [cyan]`minorag index`[/] first.");
                 return;
@@ -38,23 +45,19 @@ public static class RepoRmCommandFactory
 
             var normalizedRoot = NormalizePath(repoRoot.FullName);
 
-            using var host = HostFactory.BuildHost(dbPath);
-            using var scope = host.Services.CreateScope();
-
             var store = scope.ServiceProvider.GetRequiredService<ISqliteStore>();
-
             var repo = await store.GetRepositoryAsync(normalizedRoot, ct);
 
             if (repo is null)
             {
-                AnsiConsole.MarkupLine("[yellow]Repository not found in index.[/]");
+                console.WriteMarkupLine("[yellow]Repository not found in index.[/]");
                 return;
             }
 
             await store.RemoveRepository(repo.Id, ct);
 
-            AnsiConsole.MarkupLine("[green]Removed repository:[/]");
-            AnsiConsole.MarkupLine(
+            console.WriteMarkupLine("[green]Removed repository:[/]");
+            console.WriteMarkupLine(
                 $"  Name: [cyan]{Markup.Escape(repo.Name ?? "(unnamed)")}" +
                 $"[/]{Environment.NewLine}" +
                 $"  Path: [grey]{Markup.Escape(repo.RootPath)}[/]");

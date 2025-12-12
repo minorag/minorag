@@ -1,18 +1,20 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Minorag.Cli.Indexing;
 using Minorag.Cli.Models.Domain;
+using Minorag.Cli.Services;
 using Minorag.Cli.Tests.TestInfrastructure;
 
 namespace Minorag.Cli.Tests;
 
 public class IndexScopeServiceTests
 {
-
     [Fact]
     public async Task NoClientNoProject_CreatesOnlyRepository()
     {
         using var ctx = SqliteTestContextFactory.CreateContext();
-        var service = new IndexScopeService(ctx);
+        var console = new MinoragConsole();
+        var service = new IndexScopeService(ctx, console);
+
         var repoRoot = FakeRepo("no_project");
 
         var repo = await service.EnsureClientProjectRepoAsync(
@@ -31,7 +33,8 @@ public class IndexScopeServiceTests
     public async Task ClientOnly_CreatesClientAndRepo()
     {
         using var ctx = SqliteTestContextFactory.CreateContext();
-        var service = new IndexScopeService(ctx);
+        var console = new MinoragConsole();
+        var service = new IndexScopeService(ctx, console);
         var repoRoot = FakeRepo("client-only");
 
         var repo = await service.EnsureClientProjectRepoAsync(
@@ -52,7 +55,9 @@ public class IndexScopeServiceTests
     public async Task ProjectOnly_CreatesLocalClientAndProject()
     {
         using var ctx = SqliteTestContextFactory.CreateContext();
-        var service = new IndexScopeService(ctx);
+        var console = new MinoragConsole();
+        var service = new IndexScopeService(ctx, console);
+
         var repoRoot = FakeRepo("project-only");
 
         var repo = await service.EnsureClientProjectRepoAsync(
@@ -70,7 +75,10 @@ public class IndexScopeServiceTests
     public async Task Idempotent_RepoAlreadyLinkedToSameProject()
     {
         using var ctx = SqliteTestContextFactory.CreateContext();
-        var service = new IndexScopeService(ctx);
+        var console = new MinoragConsole();
+
+        var service = new IndexScopeService(ctx, console);
+
         var repoRoot = FakeRepo("idempotent");
 
         var repo1 = await service.EnsureClientProjectRepoAsync(
@@ -86,6 +94,7 @@ public class IndexScopeServiceTests
     public async Task Reassignment_WhenUserDeclines_Throws()
     {
         using var ctx = SqliteTestContextFactory.CreateContext();
+        var console = new MinoragConsole();
 
         var oldClient = new Client { Name = "OldClient", Slug = "old_client" };
         ctx.Clients.Add(oldClient);
@@ -105,7 +114,7 @@ public class IndexScopeServiceTests
         ctx.Repositories.Add(repo);
         await ctx.SaveChangesAsync();
 
-        var service = new IndexScopeService(ctx);
+        var service = new IndexScopeService(ctx, console);
 
         var backup = Console.In;
         Console.SetIn(new StringReader("n\n"));
@@ -131,6 +140,7 @@ public class IndexScopeServiceTests
     public async Task Reassignment_WhenUserAccepts_UpdatesProject()
     {
         using var ctx = SqliteTestContextFactory.CreateContext();
+        var console = new MinoragConsole();
 
         var oldClient = new Client { Name = "OldClient", Slug = "old_client" };
         ctx.Clients.Add(oldClient);
@@ -150,7 +160,7 @@ public class IndexScopeServiceTests
         ctx.Repositories.Add(repo);
         await ctx.SaveChangesAsync();
 
-        var service = new IndexScopeService(ctx);
+        var service = new IndexScopeService(ctx, console);
 
         var backup = Console.In;
         Console.SetIn(new StringReader("y\n"));

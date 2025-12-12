@@ -9,6 +9,7 @@ public sealed record PruneSummary(
     long TotalProjects,
     int MissingRepositories,
     int OrphanedFileRecords,
+    int OrphanChunks,
     int OrphanProjects,
     int OrphanClients,
     IReadOnlyList<MissingFileRecord> MissingFileSamples);

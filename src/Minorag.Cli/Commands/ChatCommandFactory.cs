@@ -5,7 +5,6 @@ using Microsoft.Extensions.Options;
 using Minorag.Cli.Cli;
 using Minorag.Cli.Hosting;
 using Minorag.Cli.Indexing;
-using Minorag.Cli.Models;
 using Minorag.Cli.Models.Options;
 using Minorag.Cli.Services;
 using Minorag.Cli.Services.Chat;
@@ -47,6 +46,7 @@ public static class ChatCommandFactory
 
             var ragOptions = scope.ServiceProvider.GetRequiredService<IOptions<RagOptions>>();
             var scopeResolver = scope.ServiceProvider.GetRequiredService<ScopeResolver>();
+            var console = scope.ServiceProvider.GetRequiredService<IMinoragConsole>();
 
             var explicitRepoNames = parseResult.GetValue(CliOptions.RepoNameOption) ?? [];
             var reposCsv = parseResult.GetValue(CliOptions.RepoNamesCsvOption);
@@ -66,11 +66,11 @@ public static class ChatCommandFactory
                     allRepos,
                     ct);
 
-                repoIds = repositories.Select(r => r.Id).ToList();
+                repoIds = [.. repositories.Select(r => r.Id)];
             }
             catch (Exception ex)
             {
-                AnsiConsole.MarkupLine("[red]Error:[/] {0}", Markup.Escape(ex.Message));
+                console.WriteError(ex);
                 Environment.ExitCode = 1;
                 return;
             }
@@ -79,6 +79,7 @@ public static class ChatCommandFactory
 
             await RunChatLoopAsync(
                 scope.ServiceProvider,
+                console,
                 repoIds,
                 effectiveTopK,
                 verbose,
@@ -92,6 +93,7 @@ public static class ChatCommandFactory
 
     private static async Task RunChatLoopAsync(
         IServiceProvider provider,
+        IMinoragConsole console,
         List<int> repositoryIds,
         int topK,
         bool verbose,
@@ -109,19 +111,19 @@ public static class ChatCommandFactory
 
         try
         {
-            PrintHelp();
+            PrintHelp(console);
 
             var buffer = new StringBuilder();
 
             while (true)
             {
                 buffer.Clear();
-                DrawPrompt();
+                console.DrawPrompt();
 
                 var input = await ReadMessageAsync(buffer, ct);
                 if (input is null)
                 {
-                    AnsiConsole.MarkupLine("\n[red]✖ Exiting…[/]");
+                    console.WriteMarkupLine("\n[red]✖ Exiting…[/]");
                     return;
                 }
 
@@ -133,7 +135,7 @@ public static class ChatCommandFactory
                 {
                     if (question.Equals("/exit", StringComparison.OrdinalIgnoreCase))
                     {
-                        AnsiConsole.MarkupLine("\n[red]✖ Bye-bye...[/]");
+                        console.WriteMarkupLine("\n[red]✖ Bye-bye...[/]");
                         break;
                     }
 
@@ -151,6 +153,7 @@ public static class ChatCommandFactory
                     searcher,
                     presenter,
                     question,
+                    console,
                     ct);
             }
         }
@@ -178,34 +181,34 @@ public static class ChatCommandFactory
             {
                 case "/clear":
                     memory.Clear();
-                    AnsiConsole.MarkupLine("[grey]Conversation memory cleared.[/]");
+                    console.WriteMarkupLine("[grey]Conversation memory cleared.[/]");
                     return true;
 
                 case "/index":
                     var indexer = provider.GetRequiredService<IIndexer>();
                     var indexScope = provider.GetRequiredService<IIndexScopeService>();
-                    await HandleIndexCommand(indexScope, indexer, null, null, ct);
+                    await HandleIndexCommand(indexScope, console, indexer, null, null, ct);
                     return true;
                 case "/deep":
                     currentUseAdvancedModel = true;
-                    AnsiConsole.MarkupLine("[yellow] Using advanced model for answers.[/]");
+                    console.WriteMarkupLine("[yellow] Using advanced model for answers.[/]");
                     return true;
                 case "/standard":
                     currentUseAdvancedModel = false;
-                    AnsiConsole.MarkupLine("[green] Using default model for answers.[/]");
+                    console.WriteMarkupLine("[green] Using default model for answers.[/]");
                     return true;
                 case "/help":
-                    PrintHelp();
+                    PrintHelp(console);
                     return true;
                 case "/k":
                     if (split.Length == 2 && int.TryParse(split[1], out var parsedK))
                     {
                         currentTopK = parsedK;
-                        AnsiConsole.MarkupLine($"[green]Top K is updated to {currentTopK}.[/]");
+                        console.WriteSuccess($"Top K is updated to {currentTopK}.");
                         return true;
                     }
 
-                    AnsiConsole.MarkupLine($"[red] Unable to parse command arguments try: /k <number/>[/]");
+                    console.WriteError("Unable to parse command arguments try: /k <number/>");
                     return false;
                 default:
                     return false;
@@ -213,9 +216,9 @@ public static class ChatCommandFactory
         }
     }
 
-    private static void PrintHelp()
+    private static void PrintHelp(IMinoragConsole console)
     {
-        AnsiConsole.MarkupLine("[bold cyan]Minorag Chat[/] - Enter (after typing)=send, Ctrl+C=exit");
+        console.WriteMarkupLine("[bold cyan]Minorag Chat[/] - Enter (after typing)=send, Ctrl+C=exit");
 
         var chatCommands = new[]
         {
@@ -231,7 +234,7 @@ public static class ChatCommandFactory
         // Print each command on its own line
         foreach (var c in chatCommands)
         {
-            AnsiConsole.MarkupLine($"[grey]{c.Cmd}[/] - {c.Desc}");
+            console.WriteMarkupLine($"[grey]{c.Cmd}[/] - {c.Desc}");
         }
     }
 
@@ -355,9 +358,6 @@ public static class ChatCommandFactory
     private static void DisableBracketedPaste() =>
         Console.Write("\x1b[?2004l");
 
-    private static void DrawPrompt() =>
-        AnsiConsole.Markup("[green]> [/]");
-
     private static async Task AskModel(
         List<int> repositoryIds,
         int topK,
@@ -368,9 +368,20 @@ public static class ChatCommandFactory
         ISearcher searcher,
         IConsoleSearchPresenter presenter,
         string question,
+        IMinoragConsole console,
         CancellationToken ct)
     {
-        var memoryEmbedding = await memory.GetCombinedEmbedding(ct);
+        float[]? memoryEmbedding = null;
+
+        try
+        {
+            memoryEmbedding = await memory.GetCombinedEmbedding(ct);
+        }
+        catch (Exception ex)
+        {
+            if (verbose)
+                console.WriteMarkupLine("[grey]Memory embedding skipped:[/] {0}", Markup.Escape(ex.Message));
+        }
 
         var context = await searcher.RetrieveAsync(
             question,
@@ -404,6 +415,7 @@ public static class ChatCommandFactory
 
     private static async Task HandleIndexCommand(
         IIndexScopeService indexScopeService,
+        IMinoragConsole console,
         IIndexer indexer,
         string? clientName,
         string? projectName,
@@ -411,7 +423,7 @@ public static class ChatCommandFactory
     {
         var repoRoot = RagEnvironment.GetRepoRootOrCurrent();
 
-        AnsiConsole.MarkupLine("[grey]Indexing:[/] {0}", Markup.Escape(repoRoot.FullName));
+        console.WriteMarkupLine("[grey]Indexing:[/] {0}", Markup.Escape(repoRoot.FullName));
 
         await indexScopeService.EnsureClientProjectRepoAsync(
             repoRoot,

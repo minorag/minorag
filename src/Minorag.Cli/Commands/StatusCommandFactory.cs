@@ -29,18 +29,22 @@ public static class StatusCommandFactory
             var dbFile = parseResult.GetValue(CliOptions.DbOption);
             var dbPath = dbFile?.FullName ?? RagEnvironment.GetDefaultDbPath();
 
+            using var host = HostFactory.BuildHost(dbPath);
+            using var scope = host.Services.CreateScope();
+
+            var console = scope.ServiceProvider.GetRequiredService<IMinoragConsole>();
+            var fs = scope.ServiceProvider.GetRequiredService<IFileSystemHelper>();
+
             // No database file → friendly message.
-            if (!File.Exists(dbPath))
+            if (!fs.FileExists(dbPath))
             {
-                AnsiConsole.MarkupLine(
+                console.WriteMarkupLine(
                     $"[red]No index database found at[/] [yellow]{Markup.Escape(dbPath)}[/]. " +
                     "Run [cyan]`minorag index`[/] first.");
                 return;
             }
 
             // Build host & get DbContext.
-            using var host = HostFactory.BuildHost(dbPath);
-            using var scope = host.Services.CreateScope();
 
             var db = scope.ServiceProvider.GetRequiredService<RagDbContext>();
             var pruner = scope.ServiceProvider.GetRequiredService<IIndexPruner>();
@@ -77,16 +81,16 @@ public static class StatusCommandFactory
             AnsiConsole.WriteLine();
             if (lastIndexed.Count == 0)
             {
-                AnsiConsole.MarkupLine("[yellow]No indexing activity recorded yet.[/]");
+                console.WriteMarkupLine("[yellow]No indexing activity recorded yet.[/]");
             }
             else
             {
-                AnsiConsole.MarkupLine("[bold underline]Last Indexed (top 5):[/]");
+                console.WriteMarkupLine("[bold underline]Last Indexed (top 5):[/]");
 
                 foreach (var item in lastIndexed)
                 {
                     var ts = item.LastIndexedAt?.ToString("yyyy-MM-dd HH:mm") ?? "Never";
-                    AnsiConsole.MarkupLine($"- [green]{Markup.Escape(item.Name)}[/] @ [yellow]{ts}[/]");
+                    console.WriteMarkupLine($"- [green]{Markup.Escape(item.Name)}[/] @ [yellow]{ts}[/]");
                 }
             }
         });

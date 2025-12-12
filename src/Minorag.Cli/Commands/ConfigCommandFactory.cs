@@ -64,6 +64,8 @@ public static class ConfigCommandFactory
             Console.WriteLine($"Embedding model: {ollama.EmbeddingModel}");
             Console.WriteLine($"Temperature:     {ollama.Temperature}");
             Console.WriteLine($"Max chunk size:  {rag.MaxChunkSize}");
+            Console.WriteLine($"Max Tokens:  {rag.MaxChunkTokens}");
+            Console.WriteLine($"Max Max Overlap Tokens:  {rag.MaxChunkOverlapTokens}");
             Console.WriteLine($"Top-K:           {rag.TopK}");
 
             if (envOverrides.Length == 0)

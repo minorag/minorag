@@ -22,6 +22,8 @@ public interface IOllamaClient
         double temperature,
         string prompt,
         CancellationToken ct = default);
+
+    Task<int?> GetContextLengthAsync(string model, CancellationToken ct);
 }
 
 public class OllamaClient(HttpClient httpClient) : IOllamaClient
@@ -30,6 +32,45 @@ public class OllamaClient(HttpClient httpClient) : IOllamaClient
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
+
+    private readonly Dictionary<string, int?> _contextCache = new(StringComparer.OrdinalIgnoreCase);
+
+    public async Task<int?> GetContextLengthAsync(string model, CancellationToken ct)
+    {
+        if (_contextCache.TryGetValue(model, out var cached))
+            return cached;
+
+        var payload = new { name = model };
+
+        using var requestContent = new StringContent(
+            JsonSerializer.Serialize(payload, JsonOptions),
+            Encoding.UTF8,
+            "application/json");
+
+        using var response = await httpClient.PostAsync("/api/show", requestContent, ct);
+        var body = await response.Content.ReadAsStringAsync(ct);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            // don’t fail indexing because show failed; just cache null
+            _contextCache[model] = null;
+            return null;
+        }
+
+        try
+        {
+            var show = JsonSerializer.Deserialize<OllamaShowResponse>(body, JsonOptions);
+            var ctx = show?.ModelInfo?.ContextLength;
+
+            _contextCache[model] = ctx;
+            return ctx;
+        }
+        catch
+        {
+            _contextCache[model] = null;
+            return null;
+        }
+    }
 
     public async Task<IReadOnlyList<double>> GetEmbeddingAsync(
         string model,
@@ -225,5 +266,16 @@ public class OllamaClient(HttpClient httpClient) : IOllamaClient
     sealed class OllamaEmbeddingResponse
     {
         public List<double> Embedding { get; init; } = [];
+    }
+
+    private sealed record OllamaShowResponse
+    {
+        public ModelInfo? ModelInfo { get; init; }
+    }
+
+    private sealed record ModelInfo
+    {
+        // Ollama returns this in model_info for many models
+        public int? ContextLength { get; init; }
     }
 }

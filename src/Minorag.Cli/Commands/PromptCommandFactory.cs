@@ -49,7 +49,7 @@ public static class PromptCommandFactory
             var effectiveTopK = topKOverride ?? ragOptions.Value.TopK;
 
             var scopeResolver = scope.ServiceProvider.GetRequiredService<ScopeResolver>();
-
+            var console = scope.ServiceProvider.GetRequiredService<IMinoragConsole>();
             var explicitRepoNames = parseResult.GetValue(CliOptions.RepoNameOption) ?? [];
             var reposCsv = parseResult.GetValue(CliOptions.RepoNamesCsvOption);
             var projectName = parseResult.GetValue(CliOptions.ProjectOption);
@@ -74,7 +74,7 @@ public static class PromptCommandFactory
             {
                 // Pretty CLI error instead of ugly stack trace
                 AnsiConsole.WriteLine();
-                AnsiConsole.MarkupLine("[red]Error:[/] {0}", Markup.Escape(ex.Message.TrimEnd()));
+                console.WriteMarkupLine("[red]Error:[/] {0}", Markup.Escape(ex.Message.TrimEnd()));
                 AnsiConsole.WriteLine();
 
                 Environment.ExitCode = 1;

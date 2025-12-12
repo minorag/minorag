@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
+using Minorag.Cli.Configuration;
 using Minorag.Cli.Models;
 using Minorag.Cli.Models.Domain;
 
@@ -13,8 +14,6 @@ public interface IPromptFormatter
 
 public partial class MarkdownPromptFormatter : IPromptFormatter
 {
-    private const int MaxSnippetChars = 2000;
-
     public string Format(SearchContext context, string question)
     {
         var sb = new StringBuilder();
@@ -102,9 +101,9 @@ public partial class MarkdownPromptFormatter : IPromptFormatter
             language = string.Empty;
         }
 
-        if (content.Length > MaxSnippetChars)
+        if (content.Length > DefaultValues.MaxChunkSize)
         {
-            content = content[..MaxSnippetChars] + "\n... (truncated)";
+            content = content[..DefaultValues.MaxChunkSize] + "\n... (truncated)";
         }
 
         return (language, content);

@@ -3,7 +3,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Minorag.Cli.Cli;
 using Minorag.Cli.Hosting;
 using Minorag.Cli.Services;
-using Spectre.Console;
 
 namespace Minorag.Cli.Commands;
 
@@ -27,16 +26,16 @@ public static class DoctorCommandFactory
 
             using var host = HostFactory.BuildHost(dbPath);
             using var scope = host.Services.CreateScope();
-
+            var console = scope.ServiceProvider.GetRequiredService<IMinoragConsole>();
             var doctor = scope.ServiceProvider.GetRequiredService<IEnvironmentDoctor>();
 
-            AnsiConsole.WriteLine();
-            AnsiConsole.MarkupLine("[bold underline]Minorag Doctor[/]");
-            AnsiConsole.WriteLine();
+            console.WriteLine();
+            console.WriteMarkupLine("[bold underline]Minorag Doctor[/]");
+            console.WriteLine();
 
             await doctor.RunAsync(dbPath, repoRoot.FullName, ct);
 
-            AnsiConsole.WriteLine();
+            console.WriteLine();
         });
 
         return cmd;

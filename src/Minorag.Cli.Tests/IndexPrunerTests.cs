@@ -18,7 +18,9 @@ public class IndexPrunerTests
     public async Task PruneAsync_EmptyIndex_ReturnsIndexEmptySummary()
     {
         using var db = SqliteTestContextFactory.CreateContext();
-        var pruner = new IndexPruner(db);
+        var fs = new FileSystemHelper();
+
+        var pruner = new IndexPruner(db, fs);
 
         var summary = await pruner.PruneAsync(
             dryRun: true,
@@ -77,14 +79,15 @@ public class IndexPrunerTests
 
         var chunk = TestChunkFactory.CreateChunk(
             id: 1,
-            embedding: Array.Empty<float>(),
+            embedding: [],
             repositoryId: repo.Id,
             path: fileRelativePath);
 
         db.Chunks.Add(chunk);
         await db.SaveChangesAsync();
+        var fs = new FileSystemHelper();
 
-        var pruner = new IndexPruner(db);
+        var pruner = new IndexPruner(db, fs);
 
         // Act
         var summary = await pruner.PruneAsync(
@@ -124,14 +127,15 @@ public class IndexPrunerTests
 
         var chunk = TestChunkFactory.CreateChunk(
             id: 1,
-            embedding: Array.Empty<float>(),
+            embedding: [],
             repositoryId: repo.Id,
             path: fileRelativePath);
 
         db.Chunks.Add(chunk);
         await db.SaveChangesAsync();
+        var fs = new FileSystemHelper();
 
-        var pruner = new IndexPruner(db);
+        var pruner = new IndexPruner(db, fs);
 
         // Act 1: dry-run
         var drySummary = await pruner.PruneAsync(
@@ -196,7 +200,9 @@ public class IndexPrunerTests
         db.Chunks.Add(chunk);
         await db.SaveChangesAsync();
 
-        var pruner = new IndexPruner(db);
+        var fs = new FileSystemHelper();
+
+        var pruner = new IndexPruner(db, fs);
 
         // Act 1: dry-run
         var drySummary = await pruner.PruneAsync(
@@ -229,7 +235,7 @@ public class IndexPrunerTests
     public async Task PruneAsync_PruneOrphanOwners_RemovesProjectsAndClientsWithoutRepos()
     {
         using var db = SqliteTestContextFactory.CreateContext();
-
+        var fs = new FileSystemHelper();
         // Arrange:
         // client1 -> project1 -> repo1 (valid)
         // client2 -> project2 (no repos)
@@ -252,14 +258,14 @@ public class IndexPrunerTests
 
         var chunk = TestChunkFactory.CreateChunk(
             id: 1,
-            embedding: Array.Empty<float>(),
+            embedding: [],
             repositoryId: repo1.Id,
             path: "src/Program.cs");
 
         db.Chunks.Add(chunk);
         await db.SaveChangesAsync();
 
-        var pruner = new IndexPruner(db);
+        var pruner = new IndexPruner(db, fs);
 
         // Act: prune orphan owners
         var summary = await pruner.PruneAsync(

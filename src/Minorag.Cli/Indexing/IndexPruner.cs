@@ -14,7 +14,7 @@ public interface IIndexPruner
     Task<DatabaseStatus> CalculateStatus(CancellationToken ct);
 }
 
-public sealed class IndexPruner(RagDbContext db) : IIndexPruner
+public sealed class IndexPruner(RagDbContext db, IFileSystemHelper fs) : IIndexPruner
 {
     private const int MaxMissingFileSamples = 50;
 
@@ -30,7 +30,14 @@ public sealed class IndexPruner(RagDbContext db) : IIndexPruner
                                     .Distinct()
                                     .CountAsync(ct);
 
-        return new DatabaseStatus(totalClients, totalProjects, totalRepos, totalFiles, totalChunks);
+
+        var orphanedChunksQuery = from c in db.Chunks
+                                  from r in db.Repositories.Where(x => x.Id == c.RepositoryId).DefaultIfEmpty()
+                                  where r == null
+                                  select c.Id;
+
+        var orphanedChunks = await orphanedChunksQuery.CountAsync(ct);
+        return new DatabaseStatus(totalClients, totalProjects, totalRepos, totalFiles, totalChunks, orphanedChunks);
     }
 
     public async Task<PruneSummary> PruneAsync(
@@ -54,6 +61,7 @@ public sealed class IndexPruner(RagDbContext db) : IIndexPruner
                 TotalProjects: status.TotalProjects,
                 MissingRepositories: 0,
                 OrphanedFileRecords: 0,
+                OrphanChunks: status.OrphanedChunks,
                 OrphanProjects: 0,
                 OrphanClients: 0,
                 MissingFileSamples: []);
@@ -68,11 +76,11 @@ public sealed class IndexPruner(RagDbContext db) : IIndexPruner
             .ToListAsync(ct);
 
         var missingRepos = allRepos
-            .Where(r => string.IsNullOrWhiteSpace(r.RootPath) || !Directory.Exists(r.RootPath))
+            .Where(r => string.IsNullOrWhiteSpace(r.RootPath) || !fs.DirectoryExists(r.RootPath))
             .ToList();
 
         var existingRepoRoots = allRepos
-            .Where(r => !string.IsNullOrWhiteSpace(r.RootPath) && Directory.Exists(r.RootPath))
+            .Where(r => !string.IsNullOrWhiteSpace(r.RootPath) && fs.DirectoryExists(r.RootPath))
             .ToDictionary(r => r.Id, r => r.RootPath!);
 
         // -------------------------------------------------------------
@@ -95,7 +103,7 @@ public sealed class IndexPruner(RagDbContext db) : IIndexPruner
             }
 
             var fullPath = Path.Combine(rootPath, c.Path);
-            if (!File.Exists(fullPath))
+            if (!fs.FileExists(fullPath))
             {
                 missingFileChunkIds.Add(c.Id);
                 missingFileRecords.Add((c.RepositoryId, c.Path));
@@ -174,6 +182,22 @@ public sealed class IndexPruner(RagDbContext db) : IIndexPruner
                     .ExecuteDeleteAsync(ct);
             }
 
+            if (status.OrphanedChunks > 0)
+            {
+                var orphanChunkIdsQuery =
+                    from c in db.Chunks
+                    join r in db.Repositories on c.RepositoryId equals r.Id into repos
+                    from r in repos.DefaultIfEmpty()
+                    where r == null
+                    select c.Id;
+
+                // ExecuteDeleteAsync supports subqueries; avoid loading IDs into memory.
+                await db.Chunks
+                    .Where(c => orphanChunkIdsQuery.Contains(c.Id))
+                    .ExecuteDeleteAsync(ct);
+            }
+
+
             if (pruneOrphanOwners)
             {
                 if (orphanProjectIds.Count > 0)
@@ -203,6 +227,7 @@ public sealed class IndexPruner(RagDbContext db) : IIndexPruner
             TotalProjects: status.TotalProjects,
             MissingRepositories: missingRepos.Count,
             OrphanedFileRecords: orphanedFileRecordsCount,
+            OrphanChunks: status.OrphanedChunks,
             OrphanProjects: orphanProjectsCount,
             OrphanClients: orphanClientsCount,
             MissingFileSamples: missingFileSamples);

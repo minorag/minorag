@@ -28,6 +28,12 @@ public sealed class ConversationMemory(IEmbeddingProvider embeddingProvider, int
     private readonly LinkedList<(string Q, string A)> _turns = new();
     private float[]? _cachedEmbedding;
 
+    private const int MaxEmbeddingTurnChars = 6000;     // per (q+a) before embedding
+    private const int MaxEmbeddingQuestionChars = 2000;
+    private const int MaxEmbeddingAnswerChars = 4000;
+
+
+
     public void Clear()
     {
         _turns.Clear();
@@ -95,9 +101,13 @@ public sealed class ConversationMemory(IEmbeddingProvider embeddingProvider, int
             return null;
 
         // Embed the first turn to discover the dimensionality
-        var firstEmbedding = await embeddingProvider.EmbedAsync(
-            $"{recent[0].Question} {recent[0].Answer}",
-            ct);
+        var firstText = BuildEmbeddingTurn(
+                recent[0].Question,
+                recent[0].Answer,
+                MaxEmbeddingQuestionChars,
+                MaxEmbeddingAnswerChars);
+
+        var firstEmbedding = await EmbedWithRetryAsync(embeddingProvider, firstText, ct);
 
         if (firstEmbedding.Length == 0)
             return null;
@@ -123,9 +133,8 @@ public sealed class ConversationMemory(IEmbeddingProvider embeddingProvider, int
         for (var i = 1; i < recent.Count; i++)
         {
             var (q, a) = recent[i];
-            var embedding = await embeddingProvider.EmbedAsync(
-                $"{q} {a}",
-                ct);
+            var text = BuildEmbeddingTurn(q, a, MaxEmbeddingQuestionChars, MaxEmbeddingAnswerChars);
+            var embedding = await EmbedWithRetryAsync(embeddingProvider, text, ct);
 
             Accumulate(embedding);
         }
@@ -156,6 +165,46 @@ public sealed class ConversationMemory(IEmbeddingProvider embeddingProvider, int
 
         _cachedEmbedding = sum;
         return _cachedEmbedding;
+    }
+
+    private static async Task<float[]> EmbedWithRetryAsync(
+        IEmbeddingProvider embeddingProvider,
+        string text,
+        CancellationToken ct)
+    {
+        // Some embedding models have small context windows. If we hit that,
+        // retry with smaller payloads instead of crashing the whole chat.
+        try
+        {
+            return await embeddingProvider.EmbedAsync(text, ct);
+        }
+        catch (InvalidOperationException)
+        {
+            // Retry with progressively smaller text
+        }
+
+        // 1st retry: trim to ~4000 chars
+        var t1 = text.Length <= 4000 ? text : text[..4000];
+        try
+        {
+            return await embeddingProvider.EmbedAsync(t1, ct);
+        }
+        catch (InvalidOperationException)
+        {
+            // Retry again
+        }
+
+        // 2nd retry: trim to ~2000 chars
+        var t2 = t1.Length <= 2000 ? t1 : t1[..2000];
+        return await embeddingProvider.EmbedAsync(t2, ct);
+    }
+
+    private static string BuildEmbeddingTurn(string question, string answer, int qMax, int aMax)
+    {
+        // Keep it structured but short.
+        var q = Clip(question, qMax);
+        var a = Clip(answer, aMax);
+        return $"Q: {q}\nA: {a}";
     }
 
     private static string Clip(string s, int max)

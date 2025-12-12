@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.RegularExpressions;
+using Minorag.Cli.Services;
 using Spectre.Console;
 
 namespace Minorag.Cli.Indexing;
@@ -25,8 +26,9 @@ internal sealed class PathIgnoreMatcher
     }
 
     public static PathIgnoreMatcher? Create(
-       IEnumerable<string> filePatterns,
-       IEnumerable<string> cliPatterns)
+        IMinoragConsole console,
+        IEnumerable<string> filePatterns,
+        IEnumerable<string> cliPatterns)
     {
         var all = new List<string>();
 
@@ -70,7 +72,7 @@ internal sealed class PathIgnoreMatcher
             catch (Exception ex)
             {
                 // This is defensive; our builder shouldn't normally throw.
-                AnsiConsole.MarkupLine(
+                console.WriteMarkupLine(
                     "[yellow]⚠[/] Invalid ignore pattern [red]{0}[/]: [yellow]{1}[/]. Ignoring.",
                     Markup.Escape(raw),
                     Markup.Escape(ex.Message));

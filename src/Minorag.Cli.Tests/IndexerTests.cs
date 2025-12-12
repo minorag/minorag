@@ -2,6 +2,7 @@ using Microsoft.Extensions.Options;
 using Minorag.Cli.Indexing;
 using Minorag.Cli.Models.Domain;
 using Minorag.Cli.Models.Options;
+using Minorag.Cli.Providers;
 using Minorag.Cli.Services;
 using Minorag.Cli.Tests.TestInfrastructure;
 
@@ -31,16 +32,15 @@ public class IndexerTests
         await File.WriteAllTextAsync(imageFile, "PNG BINARY STUB");
 
         var store = new IndexerFakeStore();
+
         var embeddingProvider = new FakeEmbeddingProvider
         {
             EmbeddingToReturn = [1f, 0f]
         };
 
-        var ragOptions = Options.Create(new RagOptions());
-        var indexer = new Indexer(store, embeddingProvider, ragOptions);
-
+        var indexer = GetIndexer(store, embeddingProvider);
         // Act
-        await indexer.IndexAsync(root.FullName, reindex: false, excludePatterns: Array.Empty<string>(), CancellationToken.None);
+        await indexer.IndexAsync(root.FullName, reindex: false, excludePatterns: [], CancellationToken.None);
 
         // Assert
         Assert.Single(store.InsertedChunks);
@@ -75,11 +75,10 @@ public class IndexerTests
             EmbeddingToReturn = [1f, 0f]
         };
 
-        var ragOptions = Options.Create(new RagOptions());
-        var indexer = new Indexer(store, embeddingProvider, ragOptions);
+        var indexer = GetIndexer(store, embeddingProvider);
 
         // Act
-        await indexer.IndexAsync(root.FullName, reindex: false, excludePatterns: Array.Empty<string>(), CancellationToken.None);
+        await indexer.IndexAsync(root.FullName, reindex: false, excludePatterns: [], CancellationToken.None);
 
         // Assert
         Assert.Empty(store.InsertedChunks);
@@ -106,11 +105,10 @@ public class IndexerTests
             EmbeddingToReturn = [1f, 0f]
         };
 
-        var ragOptions = Options.Create(new RagOptions());
-        var indexer = new Indexer(store, embeddingProvider, ragOptions);
+        var indexer = GetIndexer(store, embeddingProvider);
 
         // Act
-        await indexer.IndexAsync(root.FullName, reindex: false, excludePatterns: Array.Empty<string>(), CancellationToken.None);
+        await indexer.IndexAsync(root.FullName, reindex: false, excludePatterns: [], CancellationToken.None);
 
         // Assert
         Assert.Single(store.DeletedChunksForFile);
@@ -144,11 +142,10 @@ public class IndexerTests
             EmbeddingToReturn = [1f, 0f, 0f]
         };
 
-        var ragOptions = Options.Create(new RagOptions());
-        var indexer = new Indexer(store, embeddingProvider, ragOptions);
+        Indexer indexer = GetIndexer(store, embeddingProvider);
 
         // Act
-        await indexer.IndexAsync(root.FullName, reindex: false, excludePatterns: Array.Empty<string>(), CancellationToken.None);
+        await indexer.IndexAsync(root.FullName, reindex: false, excludePatterns: [], CancellationToken.None);
 
         // Assert
         Assert.True(store.InsertedChunks.Count >= 2);
@@ -162,6 +159,19 @@ public class IndexerTests
             .ToArray();
 
         Assert.Equal(indices, Enumerable.Range(0, indices.Length).ToArray());
+    }
+
+    private static Indexer GetIndexer(IndexerFakeStore store, FakeEmbeddingProvider embeddingProvider)
+    {
+        var ragOptions = Options.Create(new RagOptions());
+        var console = new MinoragConsole();
+        var fs = new FileSystemHelper();
+        var tokenCounter = new TokenCounter();
+        var chunkHelper = new ChunkHelper(tokenCounter, ragOptions);
+        var fileProvider = new RepositoryFilesProvider(fs, chunkHelper, console);
+
+        var indexer = new Indexer(store, console, embeddingProvider, fileProvider, chunkHelper);
+        return indexer;
     }
 
     // --------------------------------------------------------------------
@@ -201,11 +211,11 @@ generated/
         {
             EmbeddingToReturn = [1f]
         };
-        var ragOptions = Options.Create(new RagOptions());
-        var indexer = new Indexer(store, embeddingProvider, ragOptions);
+
+        var indexer = GetIndexer(store, embeddingProvider);
 
         // Act
-        await indexer.IndexAsync(root.FullName, reindex: false, excludePatterns: Array.Empty<string>(), CancellationToken.None);
+        await indexer.IndexAsync(root.FullName, reindex: false, excludePatterns: [], CancellationToken.None);
 
         // Assert
         // Only "src/include.cs" should be indexed
@@ -248,8 +258,8 @@ generated/
         {
             EmbeddingToReturn = [1f]
         };
-        var ragOptions = Options.Create(new RagOptions());
-        var indexer = new Indexer(store, embeddingProvider, ragOptions);
+
+        var indexer = GetIndexer(store, embeddingProvider);
 
         var excludePatterns = new[]
         {

@@ -28,28 +28,31 @@ public static class PruneCommandFactory
             var dryRun = parseResult.GetValue(CliOptions.DryRunOption);
             var pruneOwners = parseResult.GetValue(CliOptions.PruneOrphanOwnersOption);
 
+            using var host = HostFactory.BuildHost(dbPath);
+            using var scope = host.Services.CreateScope();
+
+            var console = scope.ServiceProvider.GetRequiredService<IMinoragConsole>();
+            var fs = scope.ServiceProvider.GetRequiredService<IFileSystemHelper>();
+
             // DB existence check (matches repos / repo-rm behavior)
-            if (!File.Exists(dbPath))
+            if (!fs.FileExists(dbPath))
             {
-                AnsiConsole.MarkupLine(
+                console.WriteMarkupLine(
                     $"[red]No index database found at[/] [yellow]{Markup.Escape(dbPath)}[/]. Nothing to prune.");
                 return;
             }
 
-            using var host = HostFactory.BuildHost(dbPath);
-            using var scope = host.Services.CreateScope();
-
             var pruner = scope.ServiceProvider.GetRequiredService<IIndexPruner>();
 
             AnsiConsole.WriteLine();
-            AnsiConsole.MarkupLine("[bold underline]Minorag Prune[/]");
+            console.WriteMarkupLine("[bold underline]Minorag Prune[/]");
             AnsiConsole.WriteLine();
 
             var summary = await pruner.PruneAsync(dryRun, pruneOwners, ct);
 
             if (summary.IndexEmpty)
             {
-                AnsiConsole.MarkupLine("[yellow]Index is empty. Nothing to prune.[/]");
+                console.WriteMarkupLine("[yellow]Index is empty. Nothing to prune.[/]");
                 AnsiConsole.WriteLine();
                 return;
             }
@@ -61,7 +64,7 @@ public static class PruneCommandFactory
 
             if (nothingToRemove)
             {
-                AnsiConsole.MarkupLine("[green]No stale or orphaned data found. Index is clean.[/]");
+                console.WriteMarkupLine("[green]No stale or orphaned data found. Index is clean.[/]");
                 AnsiConsole.WriteLine();
                 return;
             }
@@ -70,13 +73,13 @@ public static class PruneCommandFactory
 
             if (summary.MissingRepositories > 0)
             {
-                AnsiConsole.MarkupLine(
+                console.WriteMarkupLine(
                     $"[green]{prefix}[/] [cyan]{summary.MissingRepositories}[/] missing repositories.");
             }
 
             if (summary.OrphanedFileRecords > 0)
             {
-                AnsiConsole.MarkupLine(
+                console.WriteMarkupLine(
                     $"[green]{prefix}[/] [cyan]{summary.OrphanedFileRecords}[/] orphaned file records (paths with no file on disk).");
             }
 
@@ -84,20 +87,20 @@ public static class PruneCommandFactory
             {
                 if (summary.OrphanProjects > 0)
                 {
-                    AnsiConsole.MarkupLine(
+                    console.WriteMarkupLine(
                         $"[green]{prefix}[/] [cyan]{summary.OrphanProjects}[/] unused projects (no repositories).");
                 }
 
                 if (summary.OrphanClients > 0)
                 {
-                    AnsiConsole.MarkupLine(
+                    console.WriteMarkupLine(
                         $"[green]{prefix}[/] [cyan]{summary.OrphanClients}[/] unused clients (no projects).");
                 }
             }
             else if (summary.OrphanProjects > 0 || summary.OrphanClients > 0)
             {
                 // Informative hint if we *could* prune more with the flag
-                AnsiConsole.MarkupLine(
+                console.WriteMarkupLine(
                     "[yellow]ℹ[/] Found unused clients/projects; run with [cyan]--prune-orphan-owners[/] to remove them.");
             }
 

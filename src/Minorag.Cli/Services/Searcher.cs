@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using Minorag.Cli.Configuration;
 using Minorag.Cli.Models;
 using Minorag.Cli.Models.Domain;
 using Minorag.Cli.Providers;
@@ -12,7 +13,7 @@ public interface ISearcher
         string question,
         bool verbose,
         List<int>? repositoryIds = null,
-        int topK = 7,
+        int topK = DefaultValues.TopK,
         float[]? memoryEmbedding = null,
         CancellationToken ct = default);
 
@@ -46,7 +47,7 @@ public class Searcher(
     string question,
     bool verbose,
     List<int>? repositoryIds = null,
-    int topK = 7,
+    int topK = DefaultValues.TopK,
     float[]? memoryEmbedding = null,
     CancellationToken ct = default)
     {

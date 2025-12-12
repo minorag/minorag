@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Minorag.Cli.Cli;
 using Minorag.Cli.Hosting;
+using Minorag.Cli.Indexing;
 using Minorag.Cli.Models.Domain;
 using Minorag.Cli.Services;
 using Minorag.Cli.Store;
@@ -26,20 +27,25 @@ public static class ReposCommandFactory
             var dbFile = parseResult.GetValue(CliOptions.DbOption);
             var dbPath = dbFile?.FullName ?? RagEnvironment.GetDefaultDbPath();
 
+            using var host = HostFactory.BuildHost(dbPath);
+            using var scope = host.Services.CreateScope();
+            var console = scope.ServiceProvider.GetRequiredService<IMinoragConsole>();
+            var fs = scope.ServiceProvider.GetRequiredService<IFileSystemHelper>();
+
             // 1. DB existence check
-            if (!File.Exists(dbPath))
+            if (!fs.FileExists(dbPath))
             {
-                AnsiConsole.MarkupLine(
+                console.WriteMarkupLine(
                     $"[red]No index database found at[/] [yellow]{Markup.Escape(dbPath)}[/]. " +
                     "Run [cyan]`minorag index`[/] first.");
                 return;
             }
 
-            var repos = await GetRepositories(dbPath, ct);
+            var repos = await GetRepositories(scope.ServiceProvider, ct);
 
             if (repos.Length == 0)
             {
-                AnsiConsole.MarkupLine("[yellow]No repositories indexed yet.[/]");
+                console.WriteMarkupLine("[yellow]No repositories indexed yet.[/]");
                 return;
             }
 
@@ -49,12 +55,9 @@ public static class ReposCommandFactory
         return cmd;
     }
 
-    private static async Task<Repository[]> GetRepositories(string dbPath, CancellationToken ct)
+    private static async Task<Repository[]> GetRepositories(IServiceProvider provider, CancellationToken ct)
     {
-        using var host = HostFactory.BuildHost(dbPath);
-        using var scope = host.Services.CreateScope();
-
-        var dbContext = scope.ServiceProvider.GetRequiredService<RagDbContext>();
+        var dbContext = provider.GetRequiredService<RagDbContext>();
 
         var repos = await dbContext.Repositories
             .Include(r => r.Project)

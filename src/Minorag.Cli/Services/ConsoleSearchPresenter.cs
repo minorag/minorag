@@ -13,25 +13,26 @@ public interface IConsoleSearchPresenter
        CancellationToken ct = default);
 }
 
-public partial class ConsoleSearchPresenter : IConsoleSearchPresenter
+public partial class ConsoleSearchPresenter(IMinoragConsole console) : IConsoleSearchPresenter
 {
-    private const string SeparatorColor = "silver";  // lighter than grey
-    private const string CodeColor = "cyan";         // for inline code
+    private const string SeparatorColor = "silver";
+    private const string CodeColor = "cyan";
     private const string MetaColor = "grey70";
+    private const char NewLine = '\n';
 
     public void PresentRetrieval(SearchContext context, bool verbose)
     {
         if (!context.HasResults)
         {
-            AnsiConsole.MarkupLine("[yellow]No chunks found in the index. Did you run 'index' first?[/]");
+            console.WriteMarkupLine("[yellow]No chunks found in the index. Did you run 'index' first?[/]");
             return;
         }
 
         var top = context.Chunks;
 
-        AnsiConsole.WriteLine();
-        AnsiConsole.MarkupLine($"[bold]Top {top.Count} retrieved chunks (by file):[/]");
-        AnsiConsole.WriteLine();
+        console.WriteLine();
+        console.WriteMarkupLine($"[bold]Top {top.Count} retrieved chunks (by file):[/]");
+        console.WriteLine();
 
         var rank = 1;
         foreach (var scored in top)
@@ -39,8 +40,9 @@ public partial class ConsoleSearchPresenter : IConsoleSearchPresenter
             var chunk = scored.Chunk;
             var score = scored.Score;
 
-            AnsiConsole.MarkupLine(
-                $"[grey][[ {rank} ]][/]: [cyan]{EscapeMarkup(chunk.Path)}[/]  (score: [green]{score:F3}[/])");
+            var chunkText = $"[grey][[ {rank} ]][/]: [cyan]{console.EscapeMarkup(chunk.Path)}[/]  (score: [green]{score:F3}[/])";
+
+            console.WriteMarkupLine(chunkText);
             rank++;
         }
 
@@ -49,11 +51,11 @@ public partial class ConsoleSearchPresenter : IConsoleSearchPresenter
             return;
         }
 
-        AnsiConsole.WriteLine();
-        AnsiConsole.MarkupLine("[grey]" + new string('-', 80) + "[/]");
-        AnsiConsole.MarkupLine("[bold]Context snippets:[/]");
-        AnsiConsole.MarkupLine("[grey]" + new string('-', 80) + "[/]");
-        AnsiConsole.WriteLine();
+        console.WriteLine();
+        console.PrintSeparator(SeparatorColor);
+        console.WriteMarkupLine("[bold]Context snippets:[/]");
+        console.PrintSeparator(SeparatorColor);
+        console.WriteLine();
 
         rank = 1;
         foreach (var scored in top)
@@ -61,34 +63,33 @@ public partial class ConsoleSearchPresenter : IConsoleSearchPresenter
             var chunk = scored.Chunk;
             var score = scored.Score;
 
-            AnsiConsole.MarkupLine("[grey]" + new string('-', 80) + "[/]");
-            AnsiConsole.MarkupLine(
-                $"[grey][[ {rank} ]][/]: [cyan]{EscapeMarkup(chunk.Path)}[/]  (score: [green]{score:F3}[/])");
+            console.PrintSeparator();
+            console.WriteMarkupLine($"[grey][[ {rank} ]][/]: [cyan]{console.EscapeMarkup(chunk.Path)}[/]  (score: [green]{score:F3}[/])");
 
             var repoLabel = chunk.Repository?.Name
                             ?? chunk.Repository?.RootPath
                             ?? $"repo #{chunk.RepositoryId}";
 
-            AnsiConsole.MarkupLine($"      repo: [blue]{EscapeMarkup(repoLabel)}[/]");
+            console.WriteMarkupLine($"      repo: [blue]{console.EscapeMarkup(repoLabel)}[/]");
 
             if (!string.IsNullOrEmpty(chunk.SymbolName))
             {
-                AnsiConsole.MarkupLine($"      symbol: [purple]{EscapeMarkup(chunk.SymbolName)}[/]");
+                console.WriteMarkupLine($"      symbol: [purple]{console.EscapeMarkup(chunk.SymbolName)}[/]");
             }
 
-            AnsiConsole.WriteLine();
+            console.WriteLine();
 
             const int maxLines = 40;
-            var lines = chunk.Content.Split('\n');
+            var lines = chunk.Content.Split(NewLine);
 
             for (var i = 0; i < Math.Min(maxLines, lines.Length); i++)
             {
-                AnsiConsole.WriteLine(lines[i]);
+                console.WriteMarkupLine(lines[i]);
             }
 
             if (lines.Length > maxLines)
             {
-                AnsiConsole.MarkupLine("[grey]... (truncated)[/]");
+                console.WriteMarkupLine("[grey]... (truncated)[/]");
             }
 
             rank++;
@@ -97,14 +98,15 @@ public partial class ConsoleSearchPresenter : IConsoleSearchPresenter
     }
 
     public async Task PresentAnswerStreamingAsync(
-        IAsyncEnumerable<string> answerStream,
-        CancellationToken ct = default)
+     IAsyncEnumerable<string> answerStream,
+     CancellationToken ct = default)
     {
-        AnsiConsole.WriteLine();
-        AnsiConsole.MarkupLine($"[{SeparatorColor}]" + new string('=', 80) + "[/]");
-        AnsiConsole.MarkupLine("[bold yellow]Answer (streaming)[/]");
-        AnsiConsole.MarkupLine($"[{SeparatorColor}]" + new string('=', 80) + "[/]");
-        AnsiConsole.WriteLine();
+        console.WriteLine();
+
+        console.PrintSeparator(SeparatorColor);
+        console.WriteMarkupLine("[bold yellow]Answer (streaming)[/]");
+        console.PrintSeparator(SeparatorColor);
+        console.WriteLine();
 
         var buffer = new StringBuilder();
 
@@ -116,60 +118,30 @@ public partial class ConsoleSearchPresenter : IConsoleSearchPresenter
         var inTable = false;
         var tableLines = new List<string>();
 
-        // tiny inline spinner state
-        var spinnerFrames = new[] { "|", "/", "-", "\\" };
-        var spinnerIndex = 0;
-        var spinnerVisible = false;
-
-        void TickSpinner()
-        {
-            var frame = spinnerFrames[spinnerIndex];
-            spinnerIndex = (spinnerIndex + 1) % spinnerFrames.Length;
-
-            if (!spinnerVisible)
+        await AnsiConsole.Status()
+            .Spinner(Spinner.Known.Dots)
+            .SpinnerStyle(MetaColor)
+            .StartAsync("Thinking…", async _ =>
             {
-                AnsiConsole.Markup($"[{MetaColor}]{frame}[/]");
-                spinnerVisible = true;
-            }
-            else
-            {
-                // erase previous char and draw new one
-                AnsiConsole.Write("\b \b");
-                AnsiConsole.Markup($"[{MetaColor}]{frame}[/]");
-            }
-        }
+                await foreach (var piece in answerStream.WithCancellation(ct))
+                {
+                    buffer.Append(piece);
 
-        void ClearSpinner()
-        {
-            if (!spinnerVisible) return;
-            AnsiConsole.Write("\b \b"); // erase char
-            spinnerVisible = false;
-        }
+                    // Process complete lines from buffer
+                    while (true)
+                    {
+                        var text = buffer.ToString();
+                        var newlineIndex = text.IndexOf(NewLine);
+                        if (newlineIndex < 0)
+                            break;
 
-        // Consume chunks from the LLM stream
-        await foreach (var piece in answerStream.WithCancellation(ct))
-        {
-            buffer.Append(piece);
+                        var line = text[..newlineIndex];          // without '\n'
+                        buffer.Remove(0, newlineIndex + 1);       // +1 to drop '\n'
 
-            if (!buffer.ToString().Contains('\n'))
-            {
-                TickSpinner();
-            }
-
-            // Process complete lines from buffer
-            while (true)
-            {
-                var text = buffer.ToString();
-                var newlineIndex = text.IndexOf('\n');
-                if (newlineIndex < 0)
-                    break;
-
-                var line = text[..newlineIndex];          // without '\n'
-                buffer.Remove(0, newlineIndex + 1);       // +1 to drop '\n'
-
-                ProcessLine(line);
-            }
-        }
+                        ProcessLine(line);
+                    }
+                }
+            });
 
         // Flush last partial line, if any
         if (buffer.Length > 0)
@@ -184,12 +156,10 @@ public partial class ConsoleSearchPresenter : IConsoleSearchPresenter
         }
         else if (inCodeBlock && codeLines.Count > 0)
         {
-            // Stream ended before closing ``` – just print raw
             RenderCodeBlock();
         }
 
-        ClearSpinner();
-        AnsiConsole.WriteLine();
+        console.WriteLine();
 
         // ----------------- local helpers -----------------
 
@@ -226,17 +196,17 @@ public partial class ConsoleSearchPresenter : IConsoleSearchPresenter
                 RenderTable();
                 inTable = false;
                 tableLines.Clear();
-                // fall through to normal handling for current line
+                // fall through
             }
 
             var trimmed = line.TrimStart();
 
-            // Start of code block: ```c#, ```bash, ```md, or just ```
+            // Start of code block
             if (trimmed.StartsWith("```"))
             {
                 inCodeBlock = true;
                 var afterTicks = trimmed.Length > 3 ? trimmed[3..].Trim() : string.Empty;
-                codeLang = afterTicks; // may be empty
+                codeLang = afterTicks;
                 return;
             }
 
@@ -249,46 +219,36 @@ public partial class ConsoleSearchPresenter : IConsoleSearchPresenter
             }
 
             // Normal markdown → convert + print immediately
-            ClearSpinner();
             var markup = MarkdownToSpectreMarkup(line + "\n");
             AnsiConsole.Markup(markup);
         }
 
         void RenderCodeBlock()
         {
-            ClearSpinner();
-
-            // Join buffered lines into a single string first
-            var code = string.Join('\n', codeLines);
-
-            // Optional language label above the block
             if (!string.IsNullOrWhiteSpace(codeLang))
             {
-                AnsiConsole.MarkupLine($"[{MetaColor}]```{codeLang}[/]");
+                console.WriteCodeLine($"```{codeLang}", MetaColor);
             }
-
-            // Print each line indented, with markup escaped
-            var lines = code.Split('\n');
-            foreach (var l in lines)
+            else
             {
-                var escaped = EscapeMarkup(l);
-                AnsiConsole.MarkupLine($"    [{CodeColor}]{escaped}[/]");
+                console.WriteCodeLine("```", MetaColor);
             }
 
-            AnsiConsole.MarkupLine($"[{MetaColor}]```[/]");
-            AnsiConsole.WriteLine();
+            foreach (var l in codeLines)
+            {
+                console.WriteCodeLine("    " + l, CodeColor);
+            }
+
+            console.WriteCodeLine("```", MetaColor);
+            console.WriteLine();
         }
 
         void RenderTable()
         {
-            ClearSpinner();
+            var tableText = string.Join(NewLine, tableLines);
 
-            var tableText = string.Join('\n', tableLines);
-
-            // Reuse your existing table renderer
             if (!TryRenderMarkdownTable(tableText))
             {
-                // Fallback: plain markdown formatting
                 var markup = MarkdownToSpectreMarkup(tableText + "\n");
                 AnsiConsole.Markup(markup);
             }
@@ -299,23 +259,26 @@ public partial class ConsoleSearchPresenter : IConsoleSearchPresenter
     {
         if (!showLlm)
         {
-            AnsiConsole.WriteLine();
-            AnsiConsole.MarkupLine("[yellow]LLM call disabled (--no-llm).[/]");
+            console.WriteLine();
+            console.WriteWarning("LLM call disabled (--no-llm).");
+
             return;
         }
 
         if (!result.HasAnswer)
         {
-            AnsiConsole.WriteLine();
-            AnsiConsole.MarkupLine("[yellow]No answer was generated.[/]");
+            console.WriteLine();
+            console.WriteWarning("No answer was generated.");
             return;
         }
 
         var answer = result.Answer!;
         AnsiConsole.WriteLine();
-        AnsiConsole.MarkupLine("[grey]" + new string('=', 80) + "[/]");
-        AnsiConsole.MarkupLine("[bold yellow]Answer[/]");
-        AnsiConsole.MarkupLine("[grey]" + new string('=', 80) + "[/]");
+        console.PrintSeparator(SeparatorColor);
+
+        console.WriteMarkupLine("[bold yellow]Answer[/]");
+
+        console.PrintSeparator(SeparatorColor);
         AnsiConsole.WriteLine();
 
         // Detect & render tables
@@ -324,20 +287,20 @@ public partial class ConsoleSearchPresenter : IConsoleSearchPresenter
 
         // fallback → regular formatting
         var markup = MarkdownToSpectreMarkup(answer);
-        AnsiConsole.MarkupLine(markup);
-        AnsiConsole.WriteLine();
+        console.WriteMarkupLine(markup);
+        console.WriteLine();
     }
 
-    private static bool TryRenderMarkdownTable(string text)
+    private bool TryRenderMarkdownTable(string text)
     {
-        var lines = text.Split('\n');
+        var lines = text.Split(NewLine);
 
         var tableLines = new List<string>();
         var inTable = false;
 
         foreach (var line in lines)
         {
-            if (line.TrimStart().StartsWith("|"))
+            if (line.TrimStart().StartsWith('|'))
             {
                 inTable = true;
                 tableLines.Add(line);
@@ -398,7 +361,8 @@ public partial class ConsoleSearchPresenter : IConsoleSearchPresenter
         }
 
         AnsiConsole.Write(table);
-        AnsiConsole.WriteLine();
+        console.WriteLine();
+
         return true;
     }
 
@@ -421,8 +385,7 @@ public partial class ConsoleSearchPresenter : IConsoleSearchPresenter
         return t;
     }
 
-    private static string EscapeMarkup(string text)
-        => text is null ? string.Empty : Markup.Escape(text);
+
 
     /// <summary>
     /// Very small Markdown → Spectre markup converter.
@@ -452,6 +415,7 @@ public partial class ConsoleSearchPresenter : IConsoleSearchPresenter
 
         return text;
     }
+
 
     /// <summary>
     /// Shared inline markdown → Spectre pipeline:

@@ -13,7 +13,9 @@ public class ScopeResolverTests
     public async Task NoRepositories_ThrowsHelpfulError()
     {
         await using var ctx = SqliteTestContextFactory.CreateContext();
-        var resolver = new ScopeResolver(ctx);
+        var console = new MinoragConsole();
+
+        var resolver = new ScopeResolver(ctx, console);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             resolver.ResolveScopeAsync(
@@ -32,6 +34,7 @@ public class ScopeResolverTests
     public async Task AllReposFlag_ReturnsAllRepositories()
     {
         await using var ctx = SqliteTestContextFactory.CreateContext();
+        var console = new MinoragConsole();
 
         var client = new Client { Name = "Acme", Slug = "acme" };
         var project = new Project { Name = "Backend", Slug = "backend", Client = client };
@@ -44,7 +47,7 @@ public class ScopeResolverTests
         ctx.Repositories.AddRange(repo1, repo2);
         await ctx.SaveChangesAsync();
 
-        var resolver = new ScopeResolver(ctx);
+        var resolver = new ScopeResolver(ctx, console);
 
         var scoped = await resolver.ResolveScopeAsync(
             currentDirectory: "/some/other/path",
@@ -64,6 +67,7 @@ public class ScopeResolverTests
     public async Task ExplicitRepoNames_UsesUnionOfRepoAndReposCsv()
     {
         await using var ctx = SqliteTestContextFactory.CreateContext();
+        var console = new MinoragConsole();
 
         var repo1 = new Repository { Name = "api", RootPath = "/tmp/api" };
         var repo2 = new Repository { Name = "ui", RootPath = "/tmp/ui" };
@@ -72,11 +76,11 @@ public class ScopeResolverTests
         ctx.Repositories.AddRange(repo1, repo2, repo3);
         await ctx.SaveChangesAsync();
 
-        var resolver = new ScopeResolver(ctx);
+        var resolver = new ScopeResolver(ctx, console);
 
         var scoped = await resolver.ResolveScopeAsync(
             currentDirectory: "/tmp",
-            repoNames: new[] { "api" }, // --repo api
+            repoNames: ["api"], // --repo api
             reposCsv: "ui,missing-repo", // --repos ui,missing-repo
             projectName: null,
             clientName: null,
@@ -91,6 +95,7 @@ public class ScopeResolverTests
     public async Task ProjectScope_ReturnsAllReposInProject()
     {
         await using var ctx = SqliteTestContextFactory.CreateContext();
+        var console = new MinoragConsole();
 
         var client = new Client { Name = "Acme", Slug = "acme" };
         var projectBackend = new Project { Name = "Backend", Slug = "backend", Client = client };
@@ -105,7 +110,7 @@ public class ScopeResolverTests
         ctx.Repositories.AddRange(repoApi, repoWorker, repoUi);
         await ctx.SaveChangesAsync();
 
-        var resolver = new ScopeResolver(ctx);
+        var resolver = new ScopeResolver(ctx, console);
 
         var scoped = await resolver.ResolveScopeAsync(
             currentDirectory: "/tmp",
@@ -124,6 +129,7 @@ public class ScopeResolverTests
     public async Task ClientScope_ReturnsAllReposForClient()
     {
         await using var ctx = SqliteTestContextFactory.CreateContext();
+        var console = new MinoragConsole();
 
         var clientAcme = new Client { Name = "Acme", Slug = "acme" };
         var clientOther = new Client { Name = "Other", Slug = "other" };
@@ -140,7 +146,7 @@ public class ScopeResolverTests
         ctx.Repositories.AddRange(repo1, repo2, repo3);
         await ctx.SaveChangesAsync();
 
-        var resolver = new ScopeResolver(ctx);
+        var resolver = new ScopeResolver(ctx, console);
 
         var scoped = await resolver.ResolveScopeAsync(
             currentDirectory: "/tmp",
@@ -159,6 +165,7 @@ public class ScopeResolverTests
     public async Task NoFlags_InsideRepoWithProject_UsesProjectScope()
     {
         await using var ctx = SqliteTestContextFactory.CreateContext();
+        var console = new MinoragConsole();
 
         // Arrange: one project with two repos
         var client = new Client { Name = "Acme", Slug = "acme" };
@@ -175,7 +182,7 @@ public class ScopeResolverTests
         ctx.Repositories.AddRange(repo1, repo2);
         await ctx.SaveChangesAsync();
 
-        var resolver = new ScopeResolver(ctx);
+        var resolver = new ScopeResolver(ctx, console);
 
         // currentDirectory inside repo1
         var currentDir = Path.Combine(repoRoot1, "src");
@@ -198,6 +205,7 @@ public class ScopeResolverTests
     public async Task NoFlags_InsideRepoWithoutProject_UsesOnlyThatRepo()
     {
         await using var ctx = SqliteTestContextFactory.CreateContext();
+        var console = new MinoragConsole();
 
         var repoRoot = CreateTempDir("scope-tests-single");
         var repo = new Repository { Name = "solo-repo", RootPath = repoRoot, ProjectId = null };
@@ -205,7 +213,7 @@ public class ScopeResolverTests
         ctx.Repositories.Add(repo);
         await ctx.SaveChangesAsync();
 
-        var resolver = new ScopeResolver(ctx);
+        var resolver = new ScopeResolver(ctx, console);
 
         var currentDir = Path.Combine(repoRoot, "subdir");
         Directory.CreateDirectory(currentDir);
@@ -227,13 +235,14 @@ public class ScopeResolverTests
     public async Task NoFlags_NoActiveRepo_ThrowsWithGuidance()
     {
         await using var ctx = SqliteTestContextFactory.CreateContext();
+        var console = new MinoragConsole();
 
         // Have at least one repo so we go into the "no active repo" branch
         var repo = new Repository { Name = "api", RootPath = "/tmp/api" };
         ctx.Repositories.Add(repo);
         await ctx.SaveChangesAsync();
 
-        var resolver = new ScopeResolver(ctx);
+        var resolver = new ScopeResolver(ctx, console);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             resolver.ResolveScopeAsync(

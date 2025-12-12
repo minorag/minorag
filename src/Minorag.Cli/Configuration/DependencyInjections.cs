@@ -45,11 +45,18 @@ public static class DependencyInjections
         services.AddScoped<ISearcher, Searcher>();
         services.AddScoped<ScopeResolver>();
 
-        services.AddSingleton<IPromptFormatter, MarkdownPromptFormatter>();
-        services.AddSingleton<IConsoleSearchPresenter, ConsoleSearchPresenter>();
         services.AddScoped<IEnvironmentDoctor, EnvironmentDoctor>();
         services.AddScoped<IIndexPruner, IndexPruner>();
         services.AddScoped<IIndexScopeService, IndexScopeService>();
+
+        services.AddSingleton<IPromptFormatter, MarkdownPromptFormatter>();
+        services.AddSingleton<IConsoleSearchPresenter, ConsoleSearchPresenter>();
+        services.AddSingleton<IMinoragConsole, MinoragConsole>();
+        services.AddSingleton<IFileSystemHelper, FileSystemHelper>();
+        services.AddSingleton<ITokenCounter, TokenCounter>();
+        services.AddSingleton<IChunkHelper, ChunkHelper>();
+        services.AddSingleton<IRepositoryFilesProvider, RepositoryFilesProvider>();
+
         services.AddSingleton<IConversation>(sp =>
         {
             var provider = sp.GetRequiredService<IEmbeddingProvider>();
