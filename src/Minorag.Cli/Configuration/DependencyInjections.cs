@@ -39,6 +39,7 @@ public static class DependencyInjections
 
         services.AddScoped<ILlmClient, OllamaChatClient>();
         services.AddScoped<IEmbeddingProvider, OllamaEmbeddingProvider>();
+        services.AddSingleton<IPromptBuilder, RichPromptBuilder>();
         services.AddScoped<IIndexer, Indexer>();
         services.AddScoped<IIndexer, Indexer>();
         services.AddScoped<ISearcher, Searcher>();
