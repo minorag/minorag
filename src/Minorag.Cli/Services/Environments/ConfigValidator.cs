@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Options;
 using Minorag.Cli.Models;
 using Minorag.Cli.Models.Options;
@@ -13,7 +14,7 @@ public class ConfigValidator(
 {
     private readonly OllamaOptions _options = ollamaOptions.Value;
 
-    public async IAsyncEnumerable<EnvironmentCheckResult> ValidateAsync(CancellationToken ct)
+    public async IAsyncEnumerable<EnvironmentCheckResult> ValidateAsync([EnumeratorCancellation] CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(configuredDbPath))
         {
