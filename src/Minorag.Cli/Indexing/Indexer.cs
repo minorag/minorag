@@ -32,9 +32,6 @@ public class Indexer(
         // Normalize path
         rootPath = Path.GetFullPath(rootPath);
 
-
-
-        // Resolve / create repository row
         var repository = await store.GetOrCreateRepositoryAsync(rootPath, ct);
 
         console.WriteMarkupLine(

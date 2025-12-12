@@ -83,9 +83,6 @@ public sealed class IndexPruner(RagDbContext db, IFileSystemHelper fs) : IIndexP
             .Where(r => !string.IsNullOrWhiteSpace(r.RootPath) && fs.DirectoryExists(r.RootPath))
             .ToDictionary(r => r.Id, r => r.RootPath!);
 
-        // -------------------------------------------------------------
-        // Files that no longer exist on disk (for existing repos)
-        // -------------------------------------------------------------
         var chunkInfos = await db.Chunks
             .AsNoTracking()
             .Select(c => new { c.Id, c.RepositoryId, c.Path })
@@ -95,26 +92,29 @@ public sealed class IndexPruner(RagDbContext db, IFileSystemHelper fs) : IIndexP
         var missingFileRecords = new HashSet<(int RepoId, string Path)>();
         var missingFileSamples = new List<MissingFileRecord>();
 
-        foreach (var c in chunkInfos)
+        foreach (var c in chunkInfos.GroupBy(x => new { x.Path, x.RepositoryId }))
         {
-            if (!existingRepoRoots.TryGetValue(c.RepositoryId, out var rootPath))
+            var repoId = c.Key.RepositoryId;
+            if (!existingRepoRoots.TryGetValue(repoId, out var rootPath))
             {
                 continue;
             }
 
-            var fullPath = Path.Combine(rootPath, c.Path);
+            var filePath = c.Key.Path;
+
+            var fullPath = Path.Combine(rootPath, filePath);
             if (!fs.FileExists(fullPath))
             {
-                missingFileChunkIds.Add(c.Id);
-                missingFileRecords.Add((c.RepositoryId, c.Path));
+                missingFileChunkIds.AddRange(c.Select(ch => ch.Id));
+                missingFileRecords.Add((repoId, filePath));
 
                 if (missingFileSamples.Count < MaxMissingFileSamples)
                 {
                     missingFileSamples.Add(
                         new MissingFileRecord(
-                            RepositoryId: c.RepositoryId,
+                            RepositoryId: repoId,
                             RepositoryRoot: rootPath,
-                            RelativePath: c.Path));
+                            RelativePath: filePath));
                 }
             }
         }

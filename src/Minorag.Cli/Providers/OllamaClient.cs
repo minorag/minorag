@@ -6,6 +6,7 @@ namespace Minorag.Cli.Providers;
 
 public interface IOllamaClient
 {
+    string Host { get; }
     Task<IReadOnlyList<double>> GetEmbeddingAsync(
         string model,
         string prompt,
@@ -24,6 +25,7 @@ public interface IOllamaClient
         CancellationToken ct = default);
 
     Task<int?> GetContextLengthAsync(string model, CancellationToken ct);
+    Task<HttpResponseMessage> GetTags(CancellationToken ct);
 }
 
 public class OllamaClient(HttpClient httpClient) : IOllamaClient
@@ -34,6 +36,8 @@ public class OllamaClient(HttpClient httpClient) : IOllamaClient
     };
 
     private readonly Dictionary<string, int?> _contextCache = new(StringComparer.OrdinalIgnoreCase);
+
+    public string Host => httpClient.BaseAddress?.ToString() ?? "";
 
     public async Task<int?> GetContextLengthAsync(string model, CancellationToken ct)
     {
@@ -247,6 +251,11 @@ public class OllamaClient(HttpClient httpClient) : IOllamaClient
         }
 
         return fullAnswer.ToString();
+    }
+
+    public Task<HttpResponseMessage> GetTags(CancellationToken ct)
+    {
+        return httpClient.GetAsync("/api/tags", ct);
     }
 
     // local DTOs
