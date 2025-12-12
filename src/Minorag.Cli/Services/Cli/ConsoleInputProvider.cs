@@ -10,22 +10,44 @@ public interface IConsoleInputProvider
 public sealed class ConsoleInputProvider : IConsoleInputProvider
 {
     public Task<string?> ReadMessageAsync(CancellationToken ct)
-    {
-        // ReadKey is sync; wrap in Task to satisfy interface.
-        // If you want true async, you’d need raw terminal IO / platform code.
-        return Task.FromResult(ReadLineWithEditing(ct));
-    }
+        => Task.FromResult(ReadWithEditingAndPaste(ct));
 
-    private static string? ReadLineWithEditing(CancellationToken ct)
+    private static string? ReadWithEditingAndPaste(CancellationToken ct)
     {
         var buffer = new StringBuilder();
-        var cursor = 0; // cursor index inside buffer [0..Length]
+        var cursor = 0;
 
-        // Capture where user input starts (prompt already printed by caller).
         var startLeft = Console.CursorLeft;
         var startTop = Console.CursorTop;
 
+        // Bracketed paste state
+        var inPaste = false;
+
+        // ESC sequence parsing state machine
+        // We want to recognize:
+        //   ESC [ 2 0 0 ~   (start paste)
+        //   ESC [ 2 0 1 ~   (end paste)
+        var escState = 0; // 0 none, 1 got ESC, 2 got ESC[
+        var escSeq = new StringBuilder(); // collects "200~" / "201~" etc.
+
         Redraw();
+
+        // ---- Cursor blink (best-effort) ----
+        Timer? blinkTimer = null;
+        var cursorVisible = true;
+
+        blinkTimer = new Timer(_ =>
+        {
+            try
+            {
+                cursorVisible = !cursorVisible;
+                Console.CursorVisible = cursorVisible;
+            }
+            catch
+            {
+                // Some terminals don't support this; ignore
+            }
+        }, null, 0, 1000);
 
         while (!ct.IsCancellationRequested)
         {
@@ -35,40 +57,84 @@ public sealed class ConsoleInputProvider : IConsoleInputProvider
             if (key.Key == ConsoleKey.C && key.Modifiers.HasFlag(ConsoleModifiers.Control))
                 return null;
 
+            // ---- Bracketed paste detection (raw ESC sequences) ----
+            // ConsoleKeyInfo doesn't expose raw bytes, but KeyChar will contain '\x1b' for ESC.
+            if (escState > 0 || key.KeyChar == '\x1b')
+            {
+                if (escState == 0 && key.KeyChar == '\x1b')
+                {
+                    escState = 1;
+                    escSeq.Clear();
+                    continue;
+                }
+
+                if (escState == 1)
+                {
+                    if (key.KeyChar == '[')
+                    {
+                        escState = 2;
+                        continue;
+                    }
+
+                    // unknown ESC sequence
+                    escState = 0;
+                    continue;
+                }
+
+                if (escState == 2)
+                {
+                    // collect until '~'
+                    escSeq.Append(key.KeyChar);
+
+                    if (key.KeyChar == '~')
+                    {
+                        var seq = escSeq.ToString(); // e.g. "200~"
+                        if (seq == "200~") inPaste = true;
+                        else if (seq == "201~") inPaste = false;
+
+                        escState = 0;
+                        continue;
+                    }
+
+                    // safety
+                    if (escSeq.Length > 16)
+                        escState = 0;
+
+                    continue;
+                }
+            }
+
+            // ---- Editing keys ----
             switch (key.Key)
             {
-                case ConsoleKey.Enter:
-                    Console.WriteLine();
-                    return buffer.ToString();
-
                 case ConsoleKey.LeftArrow:
                     if (cursor > 0) cursor--;
                     SetCursor();
-                    break;
+                    continue;
 
                 case ConsoleKey.RightArrow:
                     if (cursor < buffer.Length) cursor++;
                     SetCursor();
-                    break;
+                    continue;
 
                 case ConsoleKey.Home:
                     cursor = 0;
                     SetCursor();
-                    break;
+                    continue;
 
                 case ConsoleKey.End:
                     cursor = buffer.Length;
                     SetCursor();
-                    break;
+                    continue;
 
                 case ConsoleKey.Backspace:
-                    if (cursor > 0 && buffer.Length > 0)
+                    if (cursor > 0)
                     {
                         buffer.Remove(cursor - 1, 1);
                         cursor--;
                         Redraw();
                     }
-                    break;
+                    continue;
 
                 case ConsoleKey.Delete:
                     if (cursor < buffer.Length)
@@ -76,44 +142,77 @@ public sealed class ConsoleInputProvider : IConsoleInputProvider
                         buffer.Remove(cursor, 1);
                         Redraw();
                     }
-                    break;
+                    continue;
+
+                case ConsoleKey.Enter:
+                    if (inPaste)
+                    {
+                        // During paste, Enter is part of the pasted text.
+                        // Normalize to '\n' (keep it as multiline prompt)
+                        InsertChar('\n');
+                        Redraw();
+                        continue;
+                    }
+
+                    // Outside paste: submit
+                    Console.WriteLine();
+                    DisposeBlink();
+                    return buffer.ToString();
 
                 default:
-                    // Ignore other control keys (arrows handled above)
-                    if (char.IsControl(key.KeyChar))
-                        break;
-
-                    // Insert at cursor
-                    buffer.Insert(cursor, key.KeyChar);
-                    cursor++;
-                    Redraw();
                     break;
             }
+
+            // ---- Normal characters ----
+            // During paste, terminals often send '\r' or '\n' as KeyChar
+            // (sometimes with key.Key == Enter, sometimes not depending on host).
+            // Treat CR as newline in paste mode.
+            if (inPaste && (key.KeyChar == '\r'))
+            {
+                InsertChar('\n');
+                Redraw();
+                continue;
+            }
+
+            if (char.IsControl(key.KeyChar))
+                continue;
+
+            InsertChar(key.KeyChar);
+            Redraw();
         }
 
         return null;
 
-        // ---- local helpers ----
+        // ---------------- local helpers ----------------
+
+        void DisposeBlink()
+        {
+            try
+            {
+                blinkTimer?.Dispose();
+                Console.CursorVisible = true; // restore default
+            }
+            catch { }
+        }
+
+        void InsertChar(char ch)
+        {
+            buffer.Insert(cursor, ch);
+            cursor++;
+        }
 
         void Redraw()
         {
-            // Clear previously drawn text (handles simple wrapping)
             var width = Math.Max(1, Console.BufferWidth);
 
-            // How many console cells did we occupy last time?
-            // (We can’t know the “last time” length without storing it;
-            // so clear generously based on current buffer length + 32 padding.)
-            var clearLen = buffer.Length + 32;
+            // Clear enough area. Multiline paste can be long, so clear based on current length + slack.
+            var clearLen = buffer.Length + 64;
 
-            // Move to start
             Console.SetCursorPosition(startLeft, startTop);
-
-            // Clear enough cells across wrapped lines
             ClearCells(width, startLeft, startTop, clearLen);
 
-            // Move to start and write new buffer
             Console.SetCursorPosition(startLeft, startTop);
-            Console.Write(buffer.ToString());
+            WriteBufferWithNewlines(buffer);
 
             SetCursor();
         }
@@ -122,15 +221,38 @@ public sealed class ConsoleInputProvider : IConsoleInputProvider
         {
             var width = Math.Max(1, Console.BufferWidth);
 
-            // Compute cursor console position with wrapping
-            var absolute = startLeft + cursor;
-            var left = absolute % width;
-            var top = startTop + (absolute / width);
+            // We need to compute visual cursor position considering '\n' in buffer.
+            // We'll walk the buffer from 0..cursor and compute (left, top).
+            var left = startLeft;
+            var top = startTop;
 
-            // Clamp top to buffer (defensive)
+            for (var i = 0; i < cursor; i++)
+            {
+                var ch = buffer[i];
+                if (ch == '\n')
+                {
+                    top++;
+                    left = 0;
+                    continue;
+                }
+
+                left++;
+                if (left >= width)
+                {
+                    top++;
+                    left = 0;
+                }
+            }
+
             top = Math.Min(top, Console.BufferHeight - 1);
-
             Console.SetCursorPosition(left, top);
+        }
+
+        static void WriteBufferWithNewlines(StringBuilder sb)
+        {
+            // Write exactly what we have, including newlines.
+            // Console.Write handles '\n' as newline (on Windows it becomes CRLF visually).
+            Console.Write(sb.ToString());
         }
 
         static void ClearCells(int width, int startLeft, int startTop, int cells)
@@ -139,7 +261,7 @@ public sealed class ConsoleInputProvider : IConsoleInputProvider
             var left = startLeft;
             var top = startTop;
 
-            while (remaining > 0)
+            while (remaining > 0 && top < Console.BufferHeight)
             {
                 var spaceOnLine = width - left;
                 var n = Math.Min(spaceOnLine, remaining);
@@ -150,9 +272,6 @@ public sealed class ConsoleInputProvider : IConsoleInputProvider
                 remaining -= n;
                 top++;
                 left = 0;
-
-                if (top >= Console.BufferHeight)
-                    break;
             }
         }
     }
