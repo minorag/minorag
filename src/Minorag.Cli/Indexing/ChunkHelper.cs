@@ -238,9 +238,10 @@ public class ChunkHelper(ITokenCounter tokenCounter, IOptions<RagOptions> option
         var structuredByExt =
             ext is "sln" or "csproj" or "props" or "targets" or "json" or "yaml" or "yml" or "xml" or "toml";
 
+        var relFileName = Path.GetFileName(relPath);
         var licenseLike =
-            Path.GetFileName(relPath).Equals("LICENSE", StringComparison.OrdinalIgnoreCase)
-            || Path.GetFileName(relPath).Equals("NOTICE", StringComparison.OrdinalIgnoreCase);
+            relFileName.Equals("LICENSE", StringComparison.OrdinalIgnoreCase)
+            || relFileName.Equals("NOTICE", StringComparison.OrdinalIgnoreCase);
 
         // Shape heuristics (works even if ext lies)
         var sample = content.Length > 8000 ? content[..8000] : content;
