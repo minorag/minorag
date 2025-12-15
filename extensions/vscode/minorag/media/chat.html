@@ -51,6 +51,7 @@
       .content table {
         width: 100%;
       }
+
       .content th {
         font-weight: 700;
         background: rgba(255, 255, 255, 0.04);
@@ -89,6 +90,7 @@
           opacity: 0;
           transform: translateY(10px);
         }
+
         to {
           opacity: 1;
           transform: translateY(0);
@@ -111,7 +113,8 @@
         color: var(--vscode-button-foreground);
         border: none;
         padding: 8px 16px;
-        border-radius: 4px; /* VS Code style is slightly rounded */
+        border-radius: 4px;
+        /* VS Code style is slightly rounded */
         cursor: pointer;
         font-weight: 500;
         transition: background 0.2s;
@@ -177,9 +180,11 @@
       .log {
         gap: 12px;
       }
+
       .msg {
         box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
       }
+
       .msg.you {
         margin-left: auto;
         background: color-mix(
@@ -188,6 +193,7 @@
           var(--vscode-editor-background)
         );
       }
+
       .msg.minorag {
         margin-right: auto;
       }
@@ -195,12 +201,15 @@
       .meta {
         letter-spacing: 0.08em;
       }
+
       .content p {
         margin: 8px 0;
       }
+
       .content ul {
         margin: 8px 0 8px 18px;
       }
+
       .content li {
         margin: 4px 0;
       }
@@ -215,6 +224,29 @@
         grid-template-columns: 1fr auto;
         gap: 12px;
         align-items: end;
+      }
+
+      select {
+        background: var(--input-bg);
+        color: var(--input-fg);
+        border: 1px solid var(--vscode-input-border);
+        border-radius: 4px;
+        padding: 6px 10px;
+      }
+
+      .spinner {
+        width: 24px;
+        height: 24px;
+        border: 3px solid var(--border);
+        border-top: 3px solid var(--vscode-editor-background);
+        border-radius: 50%;
+        animation: spin 0.6s linear infinite;
+        margin: 12px auto;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
       }
     </style>
   </head>
@@ -253,9 +285,10 @@
               >reposCsv
               <input id="reposCsv" type="text" placeholder="minorag,api"
             /></label>
-            <label class="mono"
-              >repo <input id="explicitRepo" type="text" placeholder="minorag"
-            /></label>
+            <label class="mono">
+              repo
+              <select id="explicitRepo"></select>
+            </label>
 
             <span class="hint"
               >Tip: leave repos empty to let ScopeResolver pick based on current

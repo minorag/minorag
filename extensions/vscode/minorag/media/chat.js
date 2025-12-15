@@ -15,9 +15,24 @@
     const useAdvancedModelEl = document.getElementById("useAdvancedModel");
     const topKEl = document.getElementById("topK");
     const reposCsvEl = document.getElementById("reposCsv");
+
     const explicitRepoEl = document.getElementById("explicitRepo");
 
-    const answerBuffers = new Map(); // answerId -> string
+    const answerBuffers = new Map();
+
+    function showSpinner(show) {
+        document.getElementById('spinner').hidden = !show;
+    }
+
+    const originalHandler = window.onmessage || (() => { });
+    window.onmessage = (event) => {
+        if (event.data.type === 'askStart') {
+            showSpinner(true);
+        } else if (event.data.type === 'askDone') {
+            showSpinner(false);
+        }
+        originalHandler(event);
+    };
 
     function now() {
         const d = new Date();
@@ -197,8 +212,9 @@
         const topK = Number(topKEl.value || "10");
 
         const reposCsv = (reposCsvEl.value || "").trim() || null;
-        const explicitRepo = (explicitRepoEl.value || "").trim();
-        const explicitRepoNames = explicitRepo ? [explicitRepo] : [];
+
+        const selected = (explicitRepoEl.value || "").trim();
+        const explicitRepoNames = selected ? [selected] : [];
 
         return {
             currentDirectory: null,
@@ -213,6 +229,28 @@
             allRepos: !!allReposEl.checked,
             useAdvancedModel: !!useAdvancedModelEl.checked,
         };
+    }
+
+    function setRepos(repos) {
+        if (!explicitRepoEl) {
+            return;
+        }
+
+        explicitRepoEl.innerHTML = "";
+
+        // default = auto (empty value => explicitRepoNames = [])
+        const autoOpt = document.createElement("option");
+        autoOpt.value = "";
+        autoOpt.textContent = "auto (ScopeResolver)";
+        explicitRepoEl.appendChild(autoOpt);
+
+        for (const r of (repos || [])) {
+            const opt = document.createElement("option");
+            const name = (r.clientName ? r.clientName + " " : "") + (r.name ?? r.id ?? "");
+            opt.value = String(r.name ?? r.id ?? "");
+            opt.textContent = String(name);
+            explicitRepoEl.appendChild(opt);
+        }
     }
 
     function send() {
@@ -270,6 +308,11 @@
             return;
         }
 
+        if (msg.type === "repos") {
+            setRepos(msg.repos ?? msg.items ?? msg.data ?? msg.payload ?? []);
+            return;
+        }
+
         if (msg.type === "askChunk") {
             const id = msg.answerId;
             const prev = answerBuffers.get(id) ?? "";
@@ -299,4 +342,6 @@
             return;
         }
     });
+
+    vscode.postMessage({ type: "loadRepos" });
 })();

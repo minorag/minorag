@@ -34,9 +34,20 @@
       {
         "command": "minorag.doctor",
         "title": "Minorag: Doctor"
+      },
+      {
+        "command": "minorag.askFromSelection",
+        "title": "Minorag: Ask Selected Text"
       }
     ]
   },
+  "keybindings": [
+    {
+      "key": "ctrl+alt+q",
+      "command": "minorag.askFromSelection",
+      "when": "editorTextFocus"
+    }
+  ],
   "scripts": {
     "vscode:prepublish": "npm run package",
     "compile": "webpack",
