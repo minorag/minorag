@@ -2,8 +2,9 @@ using System.CommandLine;
 using Microsoft.Extensions.DependencyInjection;
 using Minorag.Cli.Cli;
 using Minorag.Cli.Hosting;
-using Minorag.Cli.Indexing;
 using Minorag.Cli.Services;
+using Minorag.Core.Indexing;
+using Minorag.Core.Services;
 using Spectre.Console;
 
 namespace Minorag.Cli.Commands;

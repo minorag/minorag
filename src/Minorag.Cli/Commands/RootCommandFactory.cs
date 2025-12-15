@@ -29,7 +29,6 @@ public static class RootCommandFactory
     root.Add(DbPathCommandFactory.Create());
     root.Add(IndexCommandFactory.Create());
     root.Add(AskCommandFactory.Create());
-    root.Add(ChatCommandFactory.Create());
     root.Add(PromptCommandFactory.Create());
     root.Add(ConfigCommandFactory.Create());
     root.Add(ReposCommandFactory.Create());

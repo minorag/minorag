@@ -1,5 +1,6 @@
-using Minorag.Cli.Models.Indexing;
-using Minorag.Cli.Services;
+using Minorag.Core.Indexing;
+using Minorag.Core.Models.Indexing;
+using Minorag.Core.Services;
 
 namespace Minorag.Cli.Indexing;
 

@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
-using Minorag.Cli.Models.Domain;
-using Minorag.Cli.Services;
-using Minorag.Cli.Store;
+using Minorag.Core.Models.Domain;
+using Minorag.Core.Services;
+using Minorag.Core.Store;
 using Spectre.Console;
 
 namespace Minorag.Cli.Indexing;

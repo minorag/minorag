@@ -1,4 +1,4 @@
-using Minorag.Cli.Providers;
+using Minorag.Core.Providers;
 
 namespace Minorag.Cli.Tests.TestInfrastructure;
 

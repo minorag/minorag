@@ -2,6 +2,22 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Minorag: api",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build Minorag.Api",
+            "program": "${workspaceFolder}/src/Minorag.Api/bin/Debug/net10.0/Minorag.Api.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "justMyCode": true,
+            "env": {
+                "ASPNETCORE_ENVIRONMENT": "Development",
+                "ASPNETCORE_URLS": "http://localhost:7777"
+            }
+        },
+        {
             "name": "Minorag: ask",
             "type": "coreclr",
             "request": "launch",
@@ -10,20 +26,6 @@
             "args": [
                 "ask",
                 "${input:minoragQuestion}"
-            ],
-            "cwd": "${workspaceFolder}",
-            "console": "integratedTerminal",
-            "stopAtEntry": false,
-            "justMyCode": true
-        },
-        {
-            "name": "Minorag: chat",
-            "type": "coreclr",
-            "request": "launch",
-            "preLaunchTask": "build Minorag.Cli",
-            "program": "${workspaceFolder}/src/Minorag.Cli/bin/Debug/net8.0/Minorag.Cli.dll",
-            "args": [
-                "chat",
             ],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",

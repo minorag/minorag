@@ -35,12 +35,8 @@
     <PackageReference Include="System.CommandLine" Version="2.0.0" />
   </ItemGroup>
 
+
   <ItemGroup>
-    <Content Include="appsettings.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="appsettings.local.json" Condition="Exists('appsettings.local.json')">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
+    <ProjectReference Include="..\Minorag.Core\Minorag.Core.csproj" />
   </ItemGroup>
 </Project>

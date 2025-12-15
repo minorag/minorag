@@ -1,7 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.Extensions.Configuration;
-using Minorag.Cli.Services;
+using Minorag.Core.Services;
+using Minorag.Core.Store;
 
 namespace Minorag.Cli.Store;
 

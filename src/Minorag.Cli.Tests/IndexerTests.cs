@@ -1,10 +1,12 @@
 using Microsoft.Extensions.Options;
 using Minorag.Cli.Indexing;
-using Minorag.Cli.Models.Domain;
-using Minorag.Cli.Models.Options;
-using Minorag.Cli.Providers;
 using Minorag.Cli.Services;
 using Minorag.Cli.Tests.TestInfrastructure;
+using Minorag.Core.Indexing;
+using Minorag.Core.Models.Domain;
+using Minorag.Core.Models.Options;
+using Minorag.Core.Providers;
+using Minorag.Core.Services;
 
 namespace Minorag.Cli.Tests;
 

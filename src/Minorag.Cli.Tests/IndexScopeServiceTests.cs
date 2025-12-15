@@ -1,8 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Minorag.Cli.Indexing;
-using Minorag.Cli.Models.Domain;
 using Minorag.Cli.Services;
 using Minorag.Cli.Tests.TestInfrastructure;
+using Minorag.Core.Models.Domain;
 
 namespace Minorag.Cli.Tests;
 

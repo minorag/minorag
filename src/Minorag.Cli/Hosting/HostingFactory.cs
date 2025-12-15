@@ -3,7 +3,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Minorag.Cli.Configuration;
-using Minorag.Cli.Store;
+using Minorag.Core.Configuration;
+using Minorag.Core.Store;
 
 namespace Minorag.Cli.Hosting;
 
@@ -29,7 +30,8 @@ public static class HostFactory
         builder.ConfigureLogging();
         builder.Services
             .RegisterServices()
-            .RegisterDatabase(dbPath);
+            .RegisterDatabase(dbPath)
+            .RegisterChatDependencies();
 
         var host = builder.Build();
 
