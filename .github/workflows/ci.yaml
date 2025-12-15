@@ -2,13 +2,15 @@ name: CI - Build & Test
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
     paths:
       - "src/**"
       - "extensions/**"
       - ".github/**"
   pull_request:
-    branches: [main]
+    branches:
+      - main
     paths:
       - "src/**"
       - "extensions/**"
