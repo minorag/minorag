@@ -1,4 +1,4 @@
-using Minorag.Cli.Models.Domain;
+using Minorag.Core.Models.Domain;
 
 namespace Minorag.Cli.Tests;
 

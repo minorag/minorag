@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
-using Minorag.Cli.Models.Domain;
-using Minorag.Cli.Store;
 using Minorag.Cli.Tests.TestInfrastructure;
+using Minorag.Core.Models.Domain;
+using Minorag.Core.Store;
 
 namespace Minorag.Cli.Tests;
 

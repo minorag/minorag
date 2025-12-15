@@ -1,6 +1,7 @@
 using System.CommandLine;
 using Minorag.Cli.Cli;
 using Minorag.Cli.Services;
+using Minorag.Core.Services;
 
 namespace Minorag.Cli.Commands;
 

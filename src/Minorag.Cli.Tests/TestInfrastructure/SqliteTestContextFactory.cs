@@ -1,6 +1,6 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
-using Minorag.Cli.Store;
+using Minorag.Core.Store;
 
 namespace Minorag.Cli.Tests.TestInfrastructure;
 

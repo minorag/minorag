@@ -1,5 +1,6 @@
 using System.Text;
-using Minorag.Cli.Models;
+using Minorag.Core.Models;
+using Minorag.Core.Services;
 using Spectre.Console;
 
 namespace Minorag.Cli.Services;
@@ -93,7 +94,7 @@ public partial class ConsoleSearchPresenter(IMinoragConsole console) : IConsoleS
             }
 
             rank++;
-            AnsiConsole.WriteLine();
+            console.WriteLine();
         }
     }
 

@@ -1,6 +1,6 @@
 using System.Text;
 using System.Text.RegularExpressions;
-using Minorag.Cli.Services;
+using Minorag.Core.Services;
 using Spectre.Console;
 
 namespace Minorag.Cli.Indexing;

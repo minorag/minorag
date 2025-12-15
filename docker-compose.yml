@@ -1,0 +1,20 @@
+services:
+  minorag-api:
+    container_name: minorag-api
+    build:
+      context: .
+      dockerfile: src/Minorag.Api/Dockerfile
+    ports:
+      - "9999:7777"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      MINORAG_DATABASE__PATH: /data/index.db
+      MINORAG_OLLAMA__HOST: http://host.docker.internal:11434
+
+    volumes:
+      - ${HOME}/.minorag:/data
+
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+    restart: unless-stopped

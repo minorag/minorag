@@ -3,9 +3,10 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Minorag.Cli.Cli;
 using Minorag.Cli.Hosting;
-using Minorag.Cli.Models;
-using Minorag.Cli.Models.Options;
 using Minorag.Cli.Services;
+using Minorag.Core.Models;
+using Minorag.Core.Models.Options;
+using Minorag.Core.Services;
 using Spectre.Console;
 
 namespace Minorag.Cli.Commands;

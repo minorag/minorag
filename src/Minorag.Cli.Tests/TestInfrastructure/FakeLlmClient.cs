@@ -1,5 +1,5 @@
-using Minorag.Cli.Models.Domain;
-using Minorag.Cli.Providers;
+using Minorag.Core.Models.Domain;
+using Minorag.Core.Providers;
 
 namespace Minorag.Cli.Tests.TestInfrastructure;
 

@@ -1,0 +1,70 @@
+{
+  "name": "minorag",
+  "displayName": "Minorag",
+  "description": "Minorag – local-first RAG for codebases",
+  "version": "0.0.1",
+  "publisher": "minorag",
+  "engines": {
+    "vscode": "^1.107.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "Minorag",
+      "properties": {
+        "minorag.apiBaseUrl": {
+          "type": "string",
+          "default": "http://localhost:9999",
+          "description": "Base URL of Minorag.Api"
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "minorag.chat",
+        "title": "Minorag: Chat"
+      },
+      {
+        "command": "minorag.ask",
+        "title": "Minorag: Ask"
+      },
+      {
+        "command": "minorag.doctor",
+        "title": "Minorag: Doctor"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "webpack",
+    "watch": "webpack --watch",
+    "package": "webpack --mode production --devtool hidden-source-map",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "pretest": "npm run compile-tests && npm run compile && npm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/dompurify": "^3.0.5",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "22.x",
+    "@types/vscode": "^1.107.0",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "^3.7.1",
+    "eslint": "^9.39.1",
+    "ts-loader": "^9.5.4",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.48.1",
+    "webpack": "^5.103.0",
+    "webpack-cli": "^6.0.1"
+  },
+  "dependencies": {
+    "dompurify": "^3.3.1",
+    "marked": "^17.0.1"
+  }
+}

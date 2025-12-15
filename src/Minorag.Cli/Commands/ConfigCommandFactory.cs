@@ -2,8 +2,8 @@ using System.Collections;
 using System.CommandLine;
 using Microsoft.Extensions.Configuration;
 using Minorag.Cli.Cli;
-using Minorag.Cli.Models.Options;
-using Minorag.Cli.Services;
+using Minorag.Core.Models.Options;
+using Minorag.Core.Services;
 
 namespace Minorag.Cli.Commands;
 

@@ -47,6 +47,16 @@
                 "-targetdir:${workspaceFolder}/coverage-report",
                 "-reporttypes:Html"
             ]
+        },
+        {
+            "label": "build Minorag.Api",
+            "command": "dotnet",
+            "type": "process",
+            "args": [
+                "build",
+                "${workspaceFolder}/src/Minorag.Api/Minorag.Api.csproj"
+            ],
+            "problemMatcher": "$msCompile"
         }
     ],
     "inputs": [

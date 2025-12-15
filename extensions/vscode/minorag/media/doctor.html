@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none';
+                 img-src {{CSP_SOURCE}} https:;
+                 style-src {{CSP_SOURCE}} 'unsafe-inline';
+                 script-src 'nonce-{{NONCE}}';"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Minorag Doctor</title>
+
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, Segoe WPC, Segoe UI,
+          sans-serif;
+        margin: 0;
+      }
+      header {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        padding: 10px 12px;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.15);
+      }
+      button {
+        padding: 8px 12px;
+        border-radius: 8px;
+        border: 1px solid rgba(0, 0, 0, 0.2);
+        background: transparent;
+        cursor: pointer;
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: default;
+      }
+      .status {
+        opacity: 0.75;
+        font-size: 12px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .spacer {
+        flex: 1;
+      }
+      .pill {
+        font-size: 12px;
+        opacity: 0.8;
+        padding: 4px 8px;
+        border-radius: 999px;
+        border: 1px solid rgba(0, 0, 0, 0.15);
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 8px 10px;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        vertical-align: top;
+      }
+
+      .sev-Error {
+        color: #ff6b6b;
+        font-weight: 700;
+      }
+      .sev-Warning {
+        color: #f7b955;
+        font-weight: 700;
+      }
+      .sev-Success {
+        color: #6ddc8b;
+        font-weight: 700;
+      }
+      .sev-Info {
+        opacity: 0.85;
+      }
+
+      .hint {
+        opacity: 0.8;
+        margin-top: 4px;
+        white-space: pre-wrap;
+      }
+      tr.header td {
+        font-weight: 800;
+        opacity: 0.95;
+        padding-top: 14px;
+      }
+      tr.header td:first-child {
+        opacity: 0;
+      } /* hide severity col for headers */
+      tr.blank td {
+        border-bottom: none;
+        padding: 6px 0;
+      }
+      .mono {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+          "Liberation Mono", "Courier New", monospace;
+      }
+    </style>
+  </head>
+
+  <body>
+    <header>
+      <button id="run">Run Doctor</button>
+      <button id="clear">Clear</button>
+      <div class="spacer"></div>
+      <span class="pill mono" id="baseUrl">—</span>
+      <div class="status" id="status">Ready</div>
+    </header>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 120px">Severity</th>
+          <th style="width: 220px">Label</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+
+    <script nonce="{{NONCE}}" src="{{SCRIPT_URI}}"></script>
+  </body>
+</html>
