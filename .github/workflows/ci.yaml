@@ -73,14 +73,13 @@ jobs:
           tail -n 200 api.log || true
           exit 1
 
-      - name: API smoke: /doctor (NDJSON)
+      - name: "API smoke: /doctor (NDJSON)"
         run: |
-          # Should return multiple lines of JSON
           curl -fsS -X PATCH http://127.0.0.1:7777/doctor \
             -H "accept: application/x-ndjson" \
             | head -n 3
 
-      - name: API smoke: /ask (stream)
+      - name: "API smoke: /ask (stream)"
         run: |
           # IMPORTANT: explicitRepoNames must be an array, not null, otherwise your server throws.
           cat > req.json <<'JSON'
