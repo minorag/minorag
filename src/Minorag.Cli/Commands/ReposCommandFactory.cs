@@ -1,11 +1,8 @@
 using System.CommandLine;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Minorag.Cli.Cli;
 using Minorag.Cli.Hosting;
-using Minorag.Cli.Services;
-using Minorag.Cli.Store;
-using Minorag.Core.Models.Domain;
+using Minorag.Core.Models.ViewModels;
 using Minorag.Core.Services;
 using Minorag.Core.Store;
 using Spectre.Console;
@@ -32,6 +29,7 @@ public static class ReposCommandFactory
             using var scope = host.Services.CreateScope();
             var console = scope.ServiceProvider.GetRequiredService<IMinoragConsole>();
             var fs = scope.ServiceProvider.GetRequiredService<IFileSystemHelper>();
+            var store = scope.ServiceProvider.GetRequiredService<ISqliteStore>();
 
             // 1. DB existence check
             if (!fs.FileExists(dbPath))
@@ -42,7 +40,7 @@ public static class ReposCommandFactory
                 return;
             }
 
-            var repos = await GetRepositories(scope.ServiceProvider, ct);
+            var repos = await store.GetRepositories(ct);
 
             if (repos.Length == 0)
             {
@@ -56,25 +54,9 @@ public static class ReposCommandFactory
         return cmd;
     }
 
-    private static async Task<Repository[]> GetRepositories(IServiceProvider provider, CancellationToken ct)
-    {
-        var dbContext = provider.GetRequiredService<RagDbContext>();
 
-        var repos = await dbContext.Repositories
-            .Include(r => r.Project)
-            .ThenInclude(p => p.Client)
-            .ToListAsync(ct);
 
-        var ordered = repos
-            .OrderBy(r => r.Project?.Client?.Name ?? string.Empty)
-            .ThenBy(r => r.Project?.Name ?? string.Empty)
-            .ThenBy(r => r.Name)
-            .ToArray();
-
-        return ordered;
-    }
-
-    private static void RenderTable(Repository[] ordered)
+    private static void RenderTable(RepositoryVm[] ordered)
     {
         var table = new Table
         {
@@ -89,8 +71,8 @@ public static class ReposCommandFactory
 
         foreach (var repo in ordered)
         {
-            var clientName = repo.Project?.Client?.Name ?? "-";
-            var projectName = repo.Project?.Name ?? "-";
+            var clientName = repo.ClientName ?? "-";
+            var projectName = repo.ProjectName ?? "-";
             var repoName = repo.Name;
             var path = repo.RootPath;
             var lastIndexedAt = repo.LastIndexedAt is not null ? $"{repo.LastIndexedAt} UTC" : "";

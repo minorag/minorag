@@ -3,11 +3,13 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Microsoft.OpenApi;
 using Minorag.Api;
+using Minorag.Api.Extensions;
 using Minorag.Api.Models;
 using Minorag.Core.Configuration;
 using Minorag.Core.Models.Options;
 using Minorag.Core.Services;
 using Minorag.Core.Services.Environments;
+using Minorag.Core.Store;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -145,18 +147,32 @@ app.MapPost("/ask", async Task<IResult> (
     return Results.Stream(
         async stream =>
         {
-            await foreach (var chunk in tokenStream.WithCancellation(ct))
-            {
-                // If chunk is not a string, change this to whatever you emit.
-                var text = chunk?.ToString() ?? string.Empty;
-                var bytes = Encoding.UTF8.GetBytes(text);
+            await stream.WriteLine("|Files|Score|", ct);
+            await stream.WriteLine("|----|-----|", ct);
 
-                await stream.WriteAsync(bytes, ct);
+            foreach (var c in context.Chunks)
+            {
+                var score = c.Score.ToString("0.000"); // nicer
+                await stream.WriteLine($"|`{c.Chunk.Path}`|{score}|", ct);
+            }
+
+            await stream.WriteLine("", ct);
+
+            await foreach (var tok in tokenStream.WithCancellation(ct))
+            {
+                await stream.WriteAsync(Encoding.UTF8.GetBytes(tok?.ToString() ?? ""), ct);
                 await stream.FlushAsync(ct);
             }
         },
         contentType: "text/plain; charset=utf-8"
     );
+});
+
+app.MapGet("/repos", async (ISqliteStore store, CancellationToken ct) =>
+{
+    // Fetch all repositories from the SQLite store
+    var repos = await store.GetRepositories(ct);
+    return Results.Ok(repos);   // Spectre.NET minimal API will serialize to JSON
 });
 
 app.Run();

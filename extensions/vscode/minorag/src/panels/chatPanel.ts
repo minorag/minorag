@@ -7,10 +7,7 @@ export class ChatPanel {
   private readonly context: vscode.ExtensionContext;
   private readonly disposables: vscode.Disposable[] = [];
 
-  private constructor(
-    context: vscode.ExtensionContext,
-    panel: vscode.WebviewPanel
-  ) {
+  private constructor(context: vscode.ExtensionContext, panel: vscode.WebviewPanel) {
     this.context = context;
     this.panel = panel;
 
@@ -20,7 +17,6 @@ export class ChatPanel {
     };
 
     this.panel.webview.html = this.getHtml();
-
     this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
   }
 
@@ -34,18 +30,17 @@ export class ChatPanel {
       "minorag.chat",
       "Minorag Chat",
       vscode.ViewColumn.Beside,
-      { enableScripts: true }
+      {
+        enableScripts: true,
+        retainContextWhenHidden: true, // ✅ keep DOM/JS alive when switching tabs
+      }
     );
 
     ChatPanel.current = new ChatPanel(context, panel);
   }
 
   onMessage(handler: (msg: any) => void) {
-    this.panel.webview.onDidReceiveMessage(
-      handler,
-      undefined,
-      this.disposables
-    );
+    this.panel.webview.onDidReceiveMessage(handler, undefined, this.disposables);
   }
 
   postBaseUrl(url: string) {
@@ -56,17 +51,16 @@ export class ChatPanel {
     this.panel.webview.postMessage({ type: "status", text });
   }
 
+  postRepos(repos: any[]) {
+    this.panel.webview.postMessage({ type: "repos", repos });
+  }
+
   askStart(answerId: string) {
     this.panel.webview.postMessage({ type: "askStart", answerId });
   }
 
-  askChunk(answerId: string, text: string, prevText: string) {
-    this.panel.webview.postMessage({
-      type: "askChunk",
-      answerId,
-      text,
-      prevText,
-    });
+  askChunk(answerId: string, text: string) {
+    this.panel.webview.postMessage({ type: "askChunk", answerId, text });
   }
 
   askDone(answerId: string) {
@@ -84,11 +78,7 @@ export class ChatPanel {
     const fs = require("fs") as typeof import("fs");
     const path = require("path") as typeof import("path");
 
-    const diskPath = path.join(
-      this.context.extensionPath,
-      "media",
-      "chat.html"
-    );
+    const diskPath = path.join(this.context.extensionPath, "media", "chat.html");
     let html = fs.readFileSync(diskPath, "utf8");
 
     const scriptUri = webview.asWebviewUri(
@@ -96,20 +86,10 @@ export class ChatPanel {
     );
 
     const prismJsUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(
-        this.context.extensionUri,
-        "media",
-        "prism",
-        "prism.js"
-      )
+      vscode.Uri.joinPath(this.context.extensionUri, "media", "prism", "prism.js")
     );
     const prismCssUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(
-        this.context.extensionUri,
-        "media",
-        "prism",
-        "prism.css"
-      )
+      vscode.Uri.joinPath(this.context.extensionUri, "media", "prism", "prism.css")
     );
 
     html = html.replaceAll("{{PRISM_JS_URI}}", prismJsUri.toString());

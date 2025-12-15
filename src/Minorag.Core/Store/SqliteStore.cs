@@ -1,10 +1,12 @@
 using Microsoft.EntityFrameworkCore;
 using Minorag.Core.Models.Domain;
+using Minorag.Core.Models.ViewModels;
 
 namespace Minorag.Core.Store;
 
 public interface ISqliteStore
 {
+    Task<RepositoryVm[]> GetRepositories(CancellationToken ct);
     Task<Repository?> GetRepositoryAsync(string repoRoot, CancellationToken ct);
     Task RemoveRepository(int repositoryId, CancellationToken ct);
     Task SetRepositoryLastIndexDate(int repoId, CancellationToken ct);
@@ -17,6 +19,31 @@ public interface ISqliteStore
 
 public class SqliteStore(RagDbContext db) : ISqliteStore
 {
+    public async Task<RepositoryVm[]> GetRepositories(CancellationToken ct)
+    {
+        var repos = await db.Repositories
+            .Include(r => r.Project)
+            .ThenInclude(p => p.Client)
+            .Select(x => new RepositoryVm
+            {
+                Id = x.Id,
+                Name = x.Name,
+                RootPath = x.RootPath,
+                LastIndexedAt = x.LastIndexedAt,
+                ClientName = x.Project.Client.Name,
+                ProjectName = x.Project.Name,
+            })
+            .ToListAsync(ct);
+
+        var ordered = repos
+            .OrderBy(r => r.ClientName ?? string.Empty)
+            .ThenBy(r => r.ProjectName ?? string.Empty)
+            .ThenBy(r => r.Name)
+            .ToArray();
+
+        return ordered;
+    }
+
     public async Task<Repository?> GetRepositoryAsync(string repoRoot, CancellationToken ct)
     {
         var repo = await db.Repositories

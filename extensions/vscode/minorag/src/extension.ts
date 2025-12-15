@@ -125,8 +125,44 @@ export function activate(context: vscode.ExtensionContext) {
       panel.onMessage(async (msg) => {
         if (msg?.type === "ask") {
           await vscode.commands.executeCommand("minorag._chatInternal", msg);
+        } else if (msg?.type === "loadRepos") {
+          await vscode.commands.executeCommand("minorag._reposInternal", msg);
         }
       });
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("minorag._reposInternal", async () => {
+      const panel = ChatPanel.current;
+      if (!panel) {
+        return;
+      }
+
+      const baseUrl = getBaseUrl();
+      panel.postBaseUrl(baseUrl);
+
+      try {
+        const resp = await fetch(`${baseUrl}/repos`, {
+          method: "GET",
+          headers: { Accept: "application/json" },
+        });
+
+        if (!resp.ok) {
+          const text = await resp.text().catch(() => "");
+          panel.postStatus(`Failed to load repos: ${resp.status} ${text}`);
+          return;
+        }
+
+        const repos: any = await resp.json();
+        panel.postRepos(repos);
+      } catch (err: any) {
+        panel.postStatus(
+          `Cannot reach Minorag.Api at ${baseUrl} (is it running?)\n${String(
+            err?.message ?? err
+          )}`
+        );
+      }
     })
   );
 
@@ -177,14 +213,14 @@ export function activate(context: vscode.ExtensionContext) {
           if (contentType.includes("application/json")) {
             const json = await resp.json();
             const pretty = JSON.stringify(json, null, 2);
-            panel.askChunk(answerId, pretty, "");
+            panel.askChunk(answerId, pretty);
             panel.askDone(answerId);
             return;
           }
 
           if (!resp.body) {
             const text = await resp.text().catch(() => "");
-            panel.askChunk(answerId, text, "");
+            panel.askChunk(answerId, text);
             panel.askDone(answerId);
             return;
           }
@@ -207,11 +243,7 @@ export function activate(context: vscode.ExtensionContext) {
             }
 
             accumulated += chunk;
-            panel.askChunk(
-              answerId,
-              chunk,
-              accumulated.slice(0, accumulated.length - chunk.length)
-            );
+            panel.askChunk(answerId, chunk);
           }
 
           panel.askDone(answerId);

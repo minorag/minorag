@@ -127,7 +127,34 @@ function activate(context) {
             if (msg?.type === "ask") {
                 await vscode.commands.executeCommand("minorag._chatInternal", msg);
             }
+            else if (msg?.type === "loadRepos") {
+                await vscode.commands.executeCommand("minorag._reposInternal", msg);
+            }
         });
+    }));
+    context.subscriptions.push(vscode.commands.registerCommand("minorag._reposInternal", async () => {
+        const panel = chatPanel_1.ChatPanel.current;
+        if (!panel) {
+            return;
+        }
+        const baseUrl = getBaseUrl();
+        panel.postBaseUrl(baseUrl);
+        try {
+            const resp = await fetch(`${baseUrl}/repos`, {
+                method: "GET",
+                headers: { Accept: "application/json" },
+            });
+            if (!resp.ok) {
+                const text = await resp.text().catch(() => "");
+                panel.postStatus(`Failed to load repos: ${resp.status} ${text}`);
+                return;
+            }
+            const repos = await resp.json();
+            panel.postRepos(repos);
+        }
+        catch (err) {
+            panel.postStatus(`Cannot reach Minorag.Api at ${baseUrl} (is it running?)\n${String(err?.message ?? err)}`);
+        }
     }));
     context.subscriptions.push(vscode.commands.registerCommand("minorag._chatInternal", async (msg) => {
         const panel = chatPanel_1.ChatPanel.current;
@@ -165,13 +192,13 @@ function activate(context) {
             if (contentType.includes("application/json")) {
                 const json = await resp.json();
                 const pretty = JSON.stringify(json, null, 2);
-                panel.askChunk(answerId, pretty, "");
+                panel.askChunk(answerId, pretty);
                 panel.askDone(answerId);
                 return;
             }
             if (!resp.body) {
                 const text = await resp.text().catch(() => "");
-                panel.askChunk(answerId, text, "");
+                panel.askChunk(answerId, text);
                 panel.askDone(answerId);
                 return;
             }
@@ -189,7 +216,7 @@ function activate(context) {
                     continue;
                 }
                 accumulated += chunk;
-                panel.askChunk(answerId, chunk, accumulated.slice(0, accumulated.length - chunk.length));
+                panel.askChunk(answerId, chunk);
             }
             panel.askDone(answerId);
         }
@@ -419,7 +446,10 @@ class ChatPanel {
             ChatPanel.current.panel.reveal(vscode.ViewColumn.Beside);
             return;
         }
-        const panel = vscode.window.createWebviewPanel("minorag.chat", "Minorag Chat", vscode.ViewColumn.Beside, { enableScripts: true });
+        const panel = vscode.window.createWebviewPanel("minorag.chat", "Minorag Chat", vscode.ViewColumn.Beside, {
+            enableScripts: true,
+            retainContextWhenHidden: true, // ✅ keep DOM/JS alive when switching tabs
+        });
         ChatPanel.current = new ChatPanel(context, panel);
     }
     onMessage(handler) {
@@ -431,16 +461,14 @@ class ChatPanel {
     postStatus(text) {
         this.panel.webview.postMessage({ type: "status", text });
     }
+    postRepos(repos) {
+        this.panel.webview.postMessage({ type: "repos", repos });
+    }
     askStart(answerId) {
         this.panel.webview.postMessage({ type: "askStart", answerId });
     }
-    askChunk(answerId, text, prevText) {
-        this.panel.webview.postMessage({
-            type: "askChunk",
-            answerId,
-            text,
-            prevText,
-        });
+    askChunk(answerId, text) {
+        this.panel.webview.postMessage({ type: "askChunk", answerId, text });
     }
     askDone(answerId) {
         this.panel.webview.postMessage({ type: "askDone", answerId });
