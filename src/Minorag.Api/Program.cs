@@ -105,8 +105,8 @@ app.MapPost("/ask", async Task<IResult> (
     CancellationToken ct) =>
 {
     var repositories = await scopeResolver.ResolveScopeAsync(
-        currentDirectory: request.CurrentDirectory,
-        repoNames: request.ExplicitRepoNames,
+        currentDirectory: request.CurrentDirectory ?? "~/",
+        repoNames: request.ExplicitRepoNames ?? [],
         reposCsv: request.ReposCsv,
         projectName: request.ProjectName,
         clientName: request.ClientName,

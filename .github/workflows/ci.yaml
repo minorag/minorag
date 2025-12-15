@@ -2,25 +2,30 @@ name: CI - Build & Test
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
     paths:
-      - 'src/**'
-      - '.github/**'
+      - "src/**"
+      - "extensions/**"
+      - ".github/**"
   pull_request:
-    branches:
-      - main
+    branches: [main]
     paths:
-      - 'src/**'
-      - '.github/**'
+      - "src/**"
+      - "extensions/**"
+      - ".github/**"
 
 jobs:
-  build-and-test:
+  dotnet:
+    name: .NET build + tests + API smoke
     runs-on: ubuntu-latest
 
     env:
       DOTNET_CLI_TELEMETRY_OPTOUT: 1
       DOTNET_NOLOGO: 1
+      ASPNETCORE_ENVIRONMENT: Development
+      MINORAG_DATABASE__PATH: ${{ github.workspace }}/.ci/index.db
+      # If your API validates Ollama on startup, you either need a fake/skip flag or make it optional in CI.
+      # MINORAG_OLLAMA__HOST: http://127.0.0.1:11434
 
     steps:
       - name: Checkout
@@ -29,13 +34,103 @@ jobs:
       - name: Setup .NET 10 SDK
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: "10.0.x"
 
       - name: Restore
         run: dotnet restore ./src/Minorag.sln
 
-      - name: Build (all target frameworks)
+      - name: Build
         run: dotnet build ./src/Minorag.sln --configuration Release --no-restore
 
       - name: Test
         run: dotnet test ./src/Minorag.sln --configuration Release --no-build --verbosity normal
+
+      - name: Prepare empty DB folder
+        run: |
+          mkdir -p .ci
+          # If your app creates/migrates DB on startup, this empty file is enough.
+          # If it requires existing schema, remove this and run your migration/init logic instead.
+          touch .ci/index.db
+
+      - name: Run API (background)
+        run: |
+          # Start API on a known port
+          nohup dotnet run --project ./src/Minorag.Api/Minorag.Api.csproj --urls http://127.0.0.1:7777 > api.log 2>&1 &
+          echo $! > api.pid
+
+      - name: Wait for API
+        run: |
+          for i in {1..60}; do
+            if curl -fsS http://127.0.0.1:7777/swagger/index.html >/dev/null 2>&1; then
+              echo "API is up"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "API failed to start"
+          tail -n 200 api.log || true
+          exit 1
+
+      - name: API smoke: /doctor (NDJSON)
+        run: |
+          # Should return multiple lines of JSON
+          curl -fsS -X PATCH http://127.0.0.1:7777/doctor \
+            -H "accept: application/x-ndjson" \
+            | head -n 3
+
+      - name: API smoke: /ask (stream)
+        run: |
+          # IMPORTANT: explicitRepoNames must be an array, not null, otherwise your server throws.
+          cat > req.json <<'JSON'
+          {
+            "currentDirectory": "/",
+            "question": "ping",
+            "topK": 5,
+            "explicitRepoNames": [],
+            "reposCsv": null,
+            "projectName": null,
+            "clientName": null,
+            "noLlm": true,
+            "verbose": false,
+            "allRepos": true,
+            "useAdvancedModel": false
+          }
+          JSON
+
+          curl -fsS http://127.0.0.1:7777/ask \
+            -H "Content-Type: application/json" \
+            --data @req.json \
+            | head -c 200
+          echo
+
+      - name: Stop API
+        if: always()
+        run: |
+          if [ -f api.pid ]; then kill $(cat api.pid) || true; fi
+          tail -n 200 api.log || true
+
+  vscode:
+    name: VS Code extension build + package
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: extensions/vscode/minorag/package-lock.json
+
+      - name: Install + build (webpack)
+        working-directory: extensions/vscode/minorag
+        run: |
+          npm ci
+          npm run compile
+
+      - name: Package VSIX (smoke)
+        working-directory: extensions/vscode/minorag
+        run: |
+          npx vsce package --no-dependencies

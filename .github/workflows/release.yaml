@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - "v*.*.*"
 
 permissions:
   contents: write
@@ -23,7 +23,7 @@ jobs:
       - name: Setup .NET 10 SDK
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: "10.0.x"
 
       - name: Restore
         run: dotnet restore ./src/Minorag.sln
@@ -37,7 +37,6 @@ jobs:
       - name: Pack Minorag CLI (NuGet tool)
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-
           echo "Packing Minorag.Cli version $VERSION"
 
           dotnet pack ./src/Minorag.Cli/Minorag.Cli.csproj \
@@ -64,15 +63,70 @@ jobs:
               -o "./artifacts/minorag-$rid"
           done
 
-          cd ./artifacts
-
           for rid in "${RIDS[@]}"; do
             if [[ "$rid" == win-* ]]; then
-              zip -r "minorag-$rid.zip" "minorag-$rid"
+              (cd "./artifacts" && zip -r "minorag-$rid.zip" "minorag-$rid")
             else
-              tar -czf "minorag-$rid.tar.gz" "minorag-$rid"
+              (cd "./artifacts" && tar -czf "minorag-$rid.tar.gz" "minorag-$rid")
             fi
           done
+
+      # ----------------------------
+      # Docker image build + push
+      # ----------------------------
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Docker metadata
+        id: meta_api
+        uses: docker/metadata-action@v5
+        with:
+          images: minorag/minorag-api
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest
+
+      - name: Build and push minorag-api
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: src/Minorag.Api/Dockerfile
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.meta_api.outputs.tags }}
+          labels: ${{ steps.meta_api.outputs.labels }}
+
+      # ----------------------------
+      # VS Code extension packaging
+      # ----------------------------
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: extensions/vscode/minorag/package-lock.json
+
+      - name: Build + package VS Code extension (.vsix)
+        working-directory: extensions/vscode/minorag
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "Packaging VS Code extension version $VERSION"
+
+          npm ci
+          npm run package
+
+          # optional: set extension version to match tag (do AFTER npm ci)
+          npm version "$VERSION" --no-git-tag-version --allow-same-version
+
+          mkdir -p ../../../artifacts
+          npx vsce package --no-dependencies -o "../../../artifacts/minorag-vscode-$VERSION.vsix"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -81,5 +135,6 @@ jobs:
             ./artifacts/*.nupkg
             ./artifacts/minorag-*.zip
             ./artifacts/minorag-*.tar.gz
+            ./artifacts/*.vsix
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

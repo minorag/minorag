@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none';
+                 img-src {{CSP_SOURCE}} https:;
+                 style-src {{CSP_SOURCE}} 'unsafe-inline';
+                 script-src 'nonce-{{NONCE}}';"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Minorag Chat</title>
+
+    <style>
+      :root {
+        --pad: 16px;
+        --bg: var(--vscode-sideBar-background);
+        --fg: var(--vscode-foreground);
+        --border: var(--vscode-widget-border, rgba(255, 255, 255, 0.1));
+        /* Modern Input Colors */
+        --input-bg: var(--vscode-input-background);
+        --input-fg: var(--vscode-input-foreground);
+        --button-bg: var(--vscode-button-background);
+        --button-hover: var(--vscode-button-hoverBackground);
+      }
+
+      body {
+        font-family: var(--vscode-font-family);
+        font-size: var(--vscode-font-size);
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+      }
+
+      .wrap {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+      }
+
+      header {
+        display: flex;
+        align-items: center;
+        padding: 8px var(--pad);
+        background: var(--vscode-editor-background);
+        border-bottom: 1px solid var(--border);
+        gap: 12px;
+      }
+
+      .content table {
+        width: 100%;
+      }
+      .content th {
+        font-weight: 700;
+        background: rgba(255, 255, 255, 0.04);
+      }
+
+      .pill {
+        font-size: 10px;
+        background: var(--vscode-badge-background);
+        color: var(--vscode-badge-foreground);
+        padding: 2px 8px;
+        border-radius: 10px;
+        opacity: 0.8;
+      }
+
+      .log {
+        flex: 1;
+        padding: var(--pad);
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      /* Chat Bubbles */
+      .msg {
+        max-width: 90%;
+        padding: 12px;
+        border-radius: 12px;
+        background: var(--vscode-editor-background);
+        border: 1px solid var(--border);
+        animation: slideIn 0.2s ease-out;
+      }
+
+      @keyframes slideIn {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .meta {
+        display: flex;
+        justify-content: space-between;
+        font-size: 10px;
+        font-weight: bold;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+        opacity: 0.6;
+      }
+
+      /* Modernized Buttons */
+      button {
+        background: var(--button-bg);
+        color: var(--vscode-button-foreground);
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px; /* VS Code style is slightly rounded */
+        cursor: pointer;
+        font-weight: 500;
+        transition: background 0.2s;
+      }
+
+      button:hover:not(:disabled) {
+        background: var(--button-hover);
+      }
+
+      button:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+
+      /* Code & Tables */
+      pre {
+        background: var(--vscode-textCodeBlock-background) !important;
+        margin: 10px 0 !important;
+        padding: 12px !important;
+        border-radius: 6px;
+        overflow: auto;
+      }
+
+      .table-wrapper {
+        overflow-x: auto;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        margin: 10px 0;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      th,
+      td {
+        padding: 8px;
+        border: 1px solid var(--border);
+        text-align: left;
+      }
+
+      th {
+        background: rgba(125, 125, 125, 0.1);
+      }
+
+      /* Input area bar */
+      .inputbar {
+        padding: var(--pad);
+        background: var(--vscode-editor-background);
+        border-top: 1px solid var(--border);
+      }
+
+      textarea {
+        background: var(--input-bg);
+        color: var(--input-fg);
+        border: 1px solid var(--vscode-input-border);
+        border-radius: 4px;
+        width: 100%;
+        box-sizing: border-box;
+      }
+
+      .log {
+        gap: 12px;
+      }
+      .msg {
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+      }
+      .msg.you {
+        margin-left: auto;
+        background: color-mix(
+          in srgb,
+          var(--vscode-button-background) 12%,
+          var(--vscode-editor-background)
+        );
+      }
+      .msg.minorag {
+        margin-right: auto;
+      }
+
+      .meta {
+        letter-spacing: 0.08em;
+      }
+      .content p {
+        margin: 8px 0;
+      }
+      .content ul {
+        margin: 8px 0 8px 18px;
+      }
+      .content li {
+        margin: 4px 0;
+      }
+
+      textarea {
+        padding: 10px 12px;
+        min-height: 56px;
+      }
+
+      .inputbar {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 12px;
+        align-items: end;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="wrap">
+      <header>
+        <strong>Minorag Chat</strong>
+        <span class="pill mono" id="baseUrl">—</span>
+        <div class="spacer"></div>
+        <div class="status" id="status">Ready</div>
+      </header>
+
+      <div class="log" id="log"></div>
+
+      <div class="inputbar">
+        <div>
+          <textarea
+            id="question"
+            placeholder="Ask about the current repo… (Enter to send, Shift+Enter for newline)"
+          ></textarea>
+
+          <div class="row">
+            <label><input type="checkbox" id="noLlm" /> noLlm</label>
+            <label><input type="checkbox" id="verbose" /> verbose</label>
+            <label><input type="checkbox" id="allRepos" /> allRepos</label>
+            <label
+              ><input type="checkbox" id="useAdvancedModel" />
+              useAdvancedModel</label
+            >
+
+            <label class="mono"
+              >topK <input id="topK" type="number" min="1" max="50" value="10"
+            /></label>
+            <label class="mono"
+              >reposCsv
+              <input id="reposCsv" type="text" placeholder="minorag,api"
+            /></label>
+            <label class="mono"
+              >repo <input id="explicitRepo" type="text" placeholder="minorag"
+            /></label>
+
+            <span class="hint"
+              >Tip: leave repos empty to let ScopeResolver pick based on current
+              directory.</span
+            >
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 10px">
+          <button id="send">Send</button>
+          <button id="clear">Clear</button>
+        </div>
+      </div>
+    </div>
+    <link rel="stylesheet" href="{{PRISM_CSS_URI}}" />
+
+    <script nonce="{{NONCE}}" src="{{PRISM_JS_URI}}"></script>
+    <script nonce="{{NONCE}}" src="{{SCRIPT_URI}}"></script>
+  </body>
+</html>
