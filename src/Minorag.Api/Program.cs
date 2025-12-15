@@ -119,7 +119,7 @@ app.MapPost("/ask", async Task<IResult> (
     var effectiveTopK = request.TopK ?? ragOptions.Value.TopK;
 
     var context = await searcher.RetrieveAsync(
-        request.Question,
+        request.Question ?? "",
         request.Verbose,
         repositoryIds: repoIds,
         topK: effectiveTopK,
