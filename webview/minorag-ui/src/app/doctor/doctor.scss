@@ -1,0 +1,151 @@
+:host {
+  display: block;
+}
+
+.doctor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.title h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.subtitle {
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+.btn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  background: var(--vscode-button-background, #0e639c);
+  color: var(--vscode-button-foreground, #fff);
+}
+
+.btn[disabled] {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.error {
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 0, 0, 0.25);
+  background: rgba(255, 0, 0, 0.08);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.card {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(127, 127, 127, 0.22);
+  background: rgba(127, 127, 127, 0.06);
+}
+
+.badge {
+  height: fit-content;
+  width: fit-content;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  opacity: 0.95;
+
+  &.info {
+    background: rgba(127, 127, 127, 0.18);
+  }
+  &.ok {
+    background: rgba(0, 200, 0, 0.16);
+  }
+  &.warn {
+    background: rgba(255, 170, 0, 0.18);
+  }
+  &.error {
+    background: rgba(255, 0, 0, 0.18);
+  }
+}
+
+.main {
+  min-width: 0;
+}
+
+.label {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.desc {
+  font-size: 13px;
+  opacity: 0.9;
+  white-space: pre-wrap;
+}
+
+.hint {
+  margin-top: 6px;
+  font-size: 12px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(127, 127, 127, 0.2);
+  background: rgba(127, 127, 127, 0.08);
+
+  .hintLabel {
+    font-weight: 700;
+    opacity: 0.9;
+  }
+}
+
+.actions {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.link {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  color: var(--vscode-textLink-foreground, #3794ff);
+  font-size: 12px;
+}
+
+.sevnum {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.details {
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 10px;
+  overflow: auto;
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.details code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+  font-size: 12px;
+  white-space: pre;
+}

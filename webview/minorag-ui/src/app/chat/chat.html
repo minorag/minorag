@@ -1,0 +1,60 @@
+<div class="chat">
+  @if (lookupError()) {
+  <div class="lookup-error">
+    {{ lookupError() }}
+  </div>
+  }
+
+  <div class="messages">
+    @for (msg of messages(); track $index) {
+    <div
+      class="message"
+      [class.user]="msg.role === 'user'"
+      [class.assistant]="msg.role === 'assistant'"
+    >
+      <div class="bubble markdown" [innerHTML]="render(msg.content)"></div>
+    </div>
+    }
+  </div>
+
+  <form class="input" (submit)="send(); $event.preventDefault()">
+    <input
+      type="text"
+      placeholder="Ask Minorag…"
+      [value]="input()"
+      (input)="onInput($event)"
+      [disabled]="busy()"
+    />
+    <button type="submit" [disabled]="busy()">
+      {{ busy() ? '…' : 'Send' }}
+    </button>
+    <button type="button" class="settings-btn" (click)="openSettings()" [disabled]="busy()">
+      ⚙︎
+    </button>
+  </form>
+  <div class="statusbar">
+    <span class="summary">{{ settingsSummary() }}</span>
+  </div>
+
+  @if (settingsOpen()) {
+  <div class="dialog-backdrop" (click)="closeSettings()">
+    <div
+      class="dialog"
+      role="dialog"
+      aria-modal="true"
+      tabindex="-1"
+      (click)="$event.stopPropagation()"
+      (keydown)="onKeyDownDialog($event)"
+    >
+      <div class="dialog-header">
+        <div class="title">Settings</div>
+        <button type="button" class="close" (click)="closeSettings()">✕</button>
+      </div>
+
+      <div class="dialog-body">
+        <app-chat-settings (paramsChange)="onParamsChange($event)"></app-chat-settings>
+      </div>
+    </div>
+  </div>
+  }
+</div>

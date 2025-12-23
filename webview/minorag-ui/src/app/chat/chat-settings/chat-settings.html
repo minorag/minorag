@@ -1,0 +1,65 @@
+<div class="settings">
+  <div class="row">
+    <label>Client</label>
+    <select [value]="clientId() ?? ''" (change)="onClientSelectChange($event)">
+      <option value="">(all clients)</option>
+      <option *ngFor="let c of clients()" [value]="c.id">{{ c.name }}</option>
+    </select>
+  </div>
+
+  <div class="row">
+    <label>Project</label>
+    <select
+      [disabled]="clientId() == null"
+      [value]="projectId() ?? ''"
+      (change)="onProjectSelectChange($event)"
+    >
+      <option value="">(all projects)</option>
+      <option *ngFor="let p of filteredProjects()" [value]="p.id">{{ p.name }}</option>
+    </select>
+  </div>
+
+  <div class="row">
+    <label>Repos</label>
+    <app-repo-multiselect
+      [repos]="filteredRepos()"
+      [selectedIds]="explicitRepoIds()"
+      (selectedIdsChange)="onRepoIdsChange($event)"
+    />
+  </div>
+
+  <div class="row">
+    <label>TopK</label>
+    <input type="number" min="1" max="50" [value]="topK()" (input)="onTopKInput($event)" />
+  </div>
+
+  <div class="toggles">
+    <label>
+      <input
+        type="checkbox"
+        [checked]="allRepos()"
+        [disabled]="allReposDisabled()"
+        (change)="onToggleAllRepos($event)"
+      />
+      allRepos
+    </label>
+
+    <label>
+      <input type="checkbox" [checked]="noLlm()" (change)="onToggleNoLlm($event)" />
+      noLlm
+    </label>
+
+    <label>
+      <input type="checkbox" [checked]="verbose()" (change)="onToggleVerbose($event)" />
+      verbose
+    </label>
+
+    <label>
+      <input type="checkbox" [checked]="useAdvancedModel()" (change)="onToggleAdvanced($event)" />
+      advanced
+    </label>
+  </div>
+
+  <div class="status" *ngIf="loading()">Loading…</div>
+  <div class="error" *ngIf="error()">{{ error() }}</div>
+</div>

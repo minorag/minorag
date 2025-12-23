@@ -1,0 +1,22 @@
+<div class="repos">
+  <div class="actions">
+    <button type="button" (click)="all()">All</button>
+    <button type="button" (click)="clear()">Clear</button>
+    <span class="count">{{ selectedIds().length }} selected</span>
+  </div>
+
+  <div class="list">
+    @for (r of repos(); track r.id) {
+    <label class="item">
+      <input
+        type="checkbox"
+        [checked]="isSelected(r.id)"
+        (change)="onCheckboxChange(r.id, $event)"
+      />
+      <span>{{ r.name }}</span>
+    </label>
+    } @if (repos().length === 0) {
+    <div class="empty">No repos.</div>
+    }
+  </div>
+</div>

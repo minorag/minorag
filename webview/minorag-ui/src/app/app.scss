@@ -1,0 +1,65 @@
+:host {
+  display: block;
+  height: 100vh;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+}
+
+.shell {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(127, 127, 127, 0.25);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  .logo {
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+    display: grid;
+    place-items: center;
+    font-weight: 700;
+    border: 1px solid rgba(127, 127, 127, 0.35);
+    background-image: url('/image32x32.png');
+    background-size: contain;
+  }
+
+  .name {
+    font-weight: 600;
+  }
+}
+
+.nav {
+  display: flex;
+  gap: 12px;
+
+  a {
+    text-decoration: none;
+    padding: 6px 10px;
+    border-radius: 8px;
+    color: inherit;
+    opacity: 0.8;
+  }
+
+  a.active {
+    opacity: 1;
+    border: 1px solid rgba(127, 127, 127, 0.35);
+  }
+}
+
+.content {
+  flex: 1;
+  overflow: auto;
+  padding: 12px;
+}

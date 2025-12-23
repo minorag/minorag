@@ -1,0 +1,52 @@
+<div class="doctor">
+  <div class="header">
+    <div class="title">
+      <h2>Doctor</h2>
+      <div class="subtitle">Runs diagnostics and streams results (NDJSON).</div>
+    </div>
+
+    <button class="btn" (click)="run()" [disabled]="running()">
+      {{ running() ? 'Running…' : 'Run doctor' }}
+    </button>
+  </div>
+
+  @if (error()) {
+  <div class="error">{{ error() }}</div>
+  } @if (items().length > 0) {
+  <div class="list">
+    @for (item of items(); track $index) {
+    <div class="card">
+      <div class="badge" [class]="item.severity">
+        {{ item.severity.toUpperCase() }}
+      </div>
+
+      <div class="main">
+        <div class="label">{{ item.label }}</div>
+
+        @if (item.description) {
+        <div class="desc">{{ item.description }}</div>
+        } @if (item.hint) {
+        <div class="hint"><span class="hintLabel">Hint:</span> {{ item.hint }}</div>
+        }
+
+        <div class="actions">
+          <button class="link" (click)="toggle($index)">
+            {{ item.expanded ? 'Hide details' : 'Show details' }}
+          </button>
+
+          @if (item.severityNum !== null) {
+          <span class="sevnum">Severity: {{ item.severityNum }}</span>
+          }
+        </div>
+
+        @if (item.expanded) {
+        <pre class="details"><code>{{ prettyJson(item.raw) }}</code></pre>
+        }
+      </div>
+    </div>
+    }
+  </div>
+  } @else {
+  <div class="empty">Click <b>Run doctor</b> to start diagnostics.</div>
+  }
+</div>

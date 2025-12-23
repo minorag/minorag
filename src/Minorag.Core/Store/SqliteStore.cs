@@ -6,7 +6,9 @@ namespace Minorag.Core.Store;
 
 public interface ISqliteStore
 {
-    Task<RepositoryVm[]> GetRepositories(CancellationToken ct);
+    Task<RepositoryVm[]> GetRepositories(int?[] clientIds, int?[] projectIds, CancellationToken ct);
+    Task<ClientVm[]> GetClients(CancellationToken ct);
+    Task<ProjectVm[]> GetProjects(int[] clientIds, CancellationToken ct);
     Task<Repository?> GetRepositoryAsync(string repoRoot, CancellationToken ct);
     Task RemoveRepository(int repositoryId, CancellationToken ct);
     Task SetRepositoryLastIndexDate(int repoId, CancellationToken ct);
@@ -19,29 +21,89 @@ public interface ISqliteStore
 
 public class SqliteStore(RagDbContext db) : ISqliteStore
 {
-    public async Task<RepositoryVm[]> GetRepositories(CancellationToken ct)
+
+    public async Task<ClientVm[]> GetClients(CancellationToken ct)
     {
-        var repos = await db.Repositories
+        var clients = await db.Clients
+             .Select(x => new ClientVm
+             {
+                 Id = x.Id,
+                 Name = x.Name,
+             }).ToArrayAsync(ct);
+
+        return clients;
+    }
+
+    public async Task<ProjectVm[]> GetProjects(int[] clientIds, CancellationToken ct)
+    {
+        var projectsQuery = db.Projects
+              .Select(x => new ProjectVm
+              {
+                  Id = x.Id,
+                  Name = x.Name,
+                  ClientId = x.ClientId
+              });
+
+        if (clientIds.Length > 0)
+        {
+            projectsQuery = projectsQuery.Where(x => clientIds.Contains(x.ClientId));
+        }
+
+        var projects = await projectsQuery.ToArrayAsync(ct);
+        return projects;
+    }
+
+    public async Task<RepositoryVm[]> GetRepositories(
+     int?[] clientIds,
+     int?[] projectIds,
+     CancellationToken ct)
+    {
+        var clientIdSet = (clientIds ?? [])
+            .Where(x => x.HasValue)
+            .Distinct()
+            .ToHashSet();
+
+        var projectIdSet = (projectIds ?? [])
+            .Where(x => x.HasValue)
+            .Distinct()
+            .ToHashSet();
+
+        var q = db.Repositories
+            .AsNoTracking()
             .Include(r => r.Project)
             .ThenInclude(p => p.Client)
-            .Select(x => new RepositoryVm
+            .AsQueryable();
+
+        if (clientIdSet.Count > 0)
+        {
+            q = q.Where(r => clientIdSet.Contains(r.Project.ClientId));
+        }
+
+        if (projectIdSet.Count > 0)
+        {
+            q = q.Where(r => projectIdSet.Contains(r.ProjectId));
+        }
+
+        var repos = await q
+            .Select(r => new RepositoryVm
             {
-                Id = x.Id,
-                Name = x.Name,
-                RootPath = x.RootPath,
-                LastIndexedAt = x.LastIndexedAt,
-                ClientName = x.Project.Client.Name,
-                ProjectName = x.Project.Name,
+                Id = r.Id,
+                Name = r.Name,
+                RootPath = r.RootPath,
+                LastIndexedAt = r.LastIndexedAt,
+                ClientName = r.Project.Client.Name,
+                ProjectName = r.Project.Name,
+
+                // strongly recommended for frontend filtering
+                ClientId = r.Project.ClientId,
+                ProjectId = r.ProjectId
             })
             .ToListAsync(ct);
 
-        var ordered = repos
+        return [.. repos
             .OrderBy(r => r.ClientName ?? string.Empty)
             .ThenBy(r => r.ProjectName ?? string.Empty)
-            .ThenBy(r => r.Name)
-            .ToArray();
-
-        return ordered;
+            .ThenBy(r => r.Name)];
     }
 
     public async Task<Repository?> GetRepositoryAsync(string repoRoot, CancellationToken ct)
