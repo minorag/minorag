@@ -23,6 +23,7 @@
         "pytest",
         "softprops",
         "svgz",
+        "wwwroot",
         "xclip",
         "xsel",
         "xunit"

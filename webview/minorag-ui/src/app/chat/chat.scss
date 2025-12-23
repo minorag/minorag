@@ -1,0 +1,224 @@
+:host {
+  display: block;
+  height: 100%;
+}
+
+/* Good practice: prevent accidental body scroll when modal is open (optional)
+   You can add/remove a class on <body> if you want. */
+
+.chat {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--vscode-editor-background, transparent);
+}
+
+.messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.message {
+  display: flex;
+
+  &.user {
+    justify-content: flex-end;
+
+    .bubble {
+      background: var(--vscode-button-background, #0e639c);
+      color: var(--vscode-button-foreground, #fff);
+    }
+  }
+
+  &.assistant {
+    justify-content: flex-start;
+
+    .bubble {
+      background: rgba(127, 127, 127, 0.18);
+      color: var(--vscode-editor-foreground, inherit);
+    }
+  }
+}
+
+.bubble {
+  max-width: 75%;
+  padding: 8px 12px;
+  border-radius: 8px;
+  white-space: pre-wrap;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.input {
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+  border-top: 1px solid rgba(127, 127, 127, 0.25);
+
+  input {
+    flex: 1;
+    padding: 6px 8px;
+    font-size: 13px;
+    background: var(--vscode-input-background, transparent);
+    color: var(--vscode-input-foreground, inherit);
+    border: 1px solid var(--vscode-input-border, rgba(127, 127, 127, 0.3));
+    border-radius: 6px;
+  }
+
+  button {
+    padding: 6px 14px;
+    font-size: 13px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    background: var(--vscode-button-background, #0e639c);
+    color: var(--vscode-button-foreground, #fff);
+  }
+
+  button[disabled] {
+    opacity: 0.6;
+    cursor: default;
+  }
+}
+
+/* ✅ fix: missing dot before bubble */
+.bubble.markdown :global(pre),
+.bubble.markdown pre {
+  padding: 10px;
+  border-radius: 8px;
+  overflow: auto;
+  background: rgba(127, 127, 127, 0.15);
+}
+
+.bubble.markdown :global(code),
+.bubble.markdown code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+  font-size: 12px;
+}
+
+.bubble.markdown :global(table),
+.bubble.markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+}
+
+.bubble.markdown :global(th),
+.bubble.markdown :global(td),
+.bubble.markdown th,
+.bubble.markdown td {
+  border: 1px solid rgba(127, 127, 127, 0.25);
+  padding: 6px 8px;
+  vertical-align: top;
+}
+
+.bubble.markdown :global(th),
+.bubble.markdown th {
+  font-weight: 600;
+  background: rgba(127, 127, 127, 0.12);
+}
+
+.lookup-error {
+  padding: 6px 10px;
+  font-size: 12px;
+  color: #ff6b6b;
+  border-bottom: 1px solid rgba(127, 127, 127, 0.25);
+}
+
+.settings-btn {
+  padding: 6px 10px;
+  font-size: 13px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  background: rgba(127, 127, 127, 0.18);
+  color: var(--vscode-editor-foreground, inherit);
+}
+
+.statusbar {
+  padding: 6px 10px;
+  font-size: 12px;
+  border-top: 1px solid rgba(127, 127, 127, 0.25);
+  opacity: 0.9;
+}
+
+.summary {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+
+/* ===== Modal =====
+   Use flex centering on the backdrop, and place both in a high z-index layer.
+   Add padding so modal never touches screen edges. */
+
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 10000;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 12px;
+}
+
+.dialog {
+  position: relative;
+  width: min(720px, calc(100vw - 24px));
+  max-height: min(70vh, 680px);
+  overflow: auto;
+
+  background: var(--vscode-editor-background, #1e1e1e);
+  color: var(--vscode-editor-foreground, #ddd);
+  border: 1px solid rgba(127, 127, 127, 0.35);
+  border-radius: 10px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+
+  /* optional: subtle open animation */
+  animation: dialog-in 120ms ease-out;
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(127, 127, 127, 0.25);
+}
+
+.dialog-header .title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.dialog-header .close {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: inherit;
+  font-size: 14px;
+  opacity: 0.85;
+}
+
+.dialog-body {
+  padding: 10px 12px;
+}

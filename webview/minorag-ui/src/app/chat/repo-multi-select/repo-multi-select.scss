@@ -1,0 +1,48 @@
+.repos {
+  display: grid;
+  gap: 8px;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  button {
+    padding: 4px 8px;
+    font-size: 12px;
+    border-radius: 6px;
+    border: 1px solid rgba(127, 127, 127, 0.35);
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+  }
+
+  .count {
+    margin-left: auto;
+    font-size: 12px;
+    opacity: 0.8;
+  }
+}
+
+.list {
+  max-height: 180px;
+  overflow: auto;
+  padding: 6px;
+  border: 1px solid rgba(127, 127, 127, 0.25);
+  border-radius: 8px;
+
+  .item {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    padding: 4px 2px;
+    font-size: 12px;
+  }
+
+  .empty {
+    font-size: 12px;
+    opacity: 0.75;
+    padding: 6px 2px;
+  }
+}

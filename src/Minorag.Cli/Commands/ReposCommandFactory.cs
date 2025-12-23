@@ -40,7 +40,7 @@ public static class ReposCommandFactory
                 return;
             }
 
-            var repos = await store.GetRepositories(ct);
+            var repos = await store.GetRepositories([], [], ct);
 
             if (repos.Length == 0)
             {

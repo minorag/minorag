@@ -1,0 +1,52 @@
+.settings {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+  border-bottom: 1px solid rgba(127, 127, 127, 0.25);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  align-items: center;
+  gap: 10px;
+
+  label {
+    opacity: 0.85;
+    font-size: 12px;
+  }
+
+  select,
+  input {
+    width: 100%;
+    padding: 6px 8px;
+    font-size: 13px;
+    background: var(--vscode-input-background, transparent);
+    color: var(--vscode-input-foreground, inherit);
+    border: 1px solid var(--vscode-input-border, rgba(127, 127, 127, 0.3));
+    border-radius: 6px;
+  }
+}
+
+.toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+
+  label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    opacity: 0.9;
+  }
+}
+
+.status {
+  font-size: 12px;
+  opacity: 0.8;
+}
+.error {
+  font-size: 12px;
+  color: #ff6b6b;
+}

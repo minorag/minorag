@@ -1,4 +1,5 @@
 using Minorag.Core.Models.Domain;
+using Minorag.Core.Models.ViewModels;
 using Minorag.Core.Store;
 
 namespace Minorag.Cli.Tests.TestInfrastructure;
@@ -15,12 +16,27 @@ public class BaseFakeStore : ISqliteStore
         throw new NotImplementedException();
     }
 
+    public Task<ClientVm[]> GetClients(CancellationToken ct)
+    {
+        throw new NotImplementedException();
+    }
+
     public virtual Task<Dictionary<string, string>> GetFileHashesAsync(int repoId, CancellationToken ct)
     {
         throw new NotImplementedException();
     }
 
     public virtual Task<Repository> GetOrCreateRepositoryAsync(string repoRoot, CancellationToken ct)
+    {
+        throw new NotImplementedException();
+    }
+
+    public Task<ProjectVm[]> GetProjects(int[] clientIds, CancellationToken ct)
+    {
+        throw new NotImplementedException();
+    }
+
+    public Task<RepositoryVm[]> GetRepositories(int?[] clientIds, int?[] projectIds, CancellationToken ct)
     {
         throw new NotImplementedException();
     }

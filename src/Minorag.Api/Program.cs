@@ -6,6 +6,7 @@ using Minorag.Api;
 using Minorag.Api.Extensions;
 using Minorag.Api.Models;
 using Minorag.Core.Configuration;
+using Minorag.Core.Indexing;
 using Minorag.Core.Models.Options;
 using Minorag.Core.Services;
 using Minorag.Core.Services.Environments;
@@ -46,6 +47,23 @@ builder.Services.AddHttpLogging(o =>
         Microsoft.AspNetCore.HttpLogging.HttpLoggingFields.ResponseStatusCode;
 });
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("MinoragUi", policy =>
+    {
+        policy
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials()
+            .SetIsOriginAllowed(origin =>
+            {
+                return origin.StartsWith("http://localhost")
+                    || origin.StartsWith("http://127.0.0.1")
+                    || origin.StartsWith("vscode-webview://");
+            });
+    });
+});
+
 // Swagger / OpenAPI
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(o =>
@@ -63,6 +81,12 @@ builder.Services.AddSingleton<IMinoragConsole, NoOpConsole>();
 
 var app = builder.Build();
 app.UseHttpLogging();
+
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
+app.MapFallbackToFile("index.html");
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -74,8 +98,11 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseCors("MinoragUi");
 
-app.MapPatch("/doctor", async (
+var api = app.MapGroup("/api");
+
+api.MapPatch("/doctor", async (
     HttpContext http,
     ILogger<Program> logger,
     IEnvironmentDoctor doctor,
@@ -98,7 +125,13 @@ app.MapPatch("/doctor", async (
     }
 });
 
-app.MapPost("/ask", async Task<IResult> (
+api.MapGet("/status", async (IIndexPruner indexPruner, CancellationToken ct) =>
+{
+    var status = await indexPruner.CalculateStatus(ct);
+    return status;
+});
+
+api.MapPost("/ask", async Task<IResult> (
     HttpContext http,
     ScopeResolver scopeResolver,
     ISearcher searcher,
@@ -168,12 +201,26 @@ app.MapPost("/ask", async Task<IResult> (
     );
 });
 
-app.MapGet("/repos", async (ISqliteStore store, CancellationToken ct) =>
+api.MapGet("/repos", async (ISqliteStore store, [FromQuery] int?[] clientIds, [FromQuery] int?[] projectIds, CancellationToken ct) =>
 {
-    // Fetch all repositories from the SQLite store
-    var repos = await store.GetRepositories(ct);
-    return Results.Ok(repos);   // Spectre.NET minimal API will serialize to JSON
+    var repos = await store.GetRepositories(clientIds, projectIds, ct);
+    return Results.Ok(repos);
 });
+
+
+api.MapGet("/clients", async (ISqliteStore store, CancellationToken ct) =>
+{
+    var repos = await store.GetClients(ct);
+    return Results.Ok(repos);
+});
+
+
+api.MapGet("/projects", async (ISqliteStore store, [FromQuery] int[] clientIds, CancellationToken ct) =>
+{
+    var repos = await store.GetProjects(clientIds, ct);
+    return Results.Ok(repos);
+});
+
 
 app.Run();
 
