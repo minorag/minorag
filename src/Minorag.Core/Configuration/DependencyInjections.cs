@@ -63,7 +63,7 @@ public static class DependencyInjections
     {
         services.AddDbContext<RagDbContext>(options =>
         {
-            options.UseSqlite($"Data Source={dbPath}");
+            options.UseSqlite($"Data Source={dbPath}", b => b.MigrationsAssembly("Minorag.Cli"));
         });
 
         return services;

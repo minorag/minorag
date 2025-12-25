@@ -12,16 +12,19 @@ public interface ISqliteStore
     Task<Repository?> GetRepositoryAsync(string repoRoot, CancellationToken ct);
     Task RemoveRepository(int repositoryId, CancellationToken ct);
     Task SetRepositoryLastIndexDate(int repoId, CancellationToken ct);
+    Task<RepositoryFile?> GetFile(int repositoryId, string relPath, CancellationToken ct);
+    Task CreateFile(RepositoryFile file, CancellationToken ct);
     Task<Repository> GetOrCreateRepositoryAsync(string repoRoot, CancellationToken ct);
     Task<Dictionary<string, string>> GetFileHashesAsync(int repoId, CancellationToken ct);
     Task InsertChunkAsync(CodeChunk chunk, CancellationToken ct);
+    Task DeleteChunksForFileAsync(int fileId, CancellationToken ct);
     Task DeleteChunksForFileAsync(int repoId, string relativePath, CancellationToken ct);
-    IAsyncEnumerable<CodeChunk> GetAllChunksAsync(bool verbose, List<int>? repositoryIds = null, CancellationToken ct = default);
+    IAsyncEnumerable<CodeChunkVm> GetAllChunksAsync(List<int>? repositoryIds = null, CancellationToken ct = default);
+    Task SaveChanges(CancellationToken ct);
 }
 
 public class SqliteStore(RagDbContext db) : ISqliteStore
 {
-
     public async Task<ClientVm[]> GetClients(CancellationToken ct)
     {
         var clients = await db.Clients
@@ -117,7 +120,7 @@ public class SqliteStore(RagDbContext db) : ISqliteStore
     {
         using var tx = await db.Database.BeginTransactionAsync(ct);
 
-        await db.Chunks
+        await db.Files
             .Where(c => c.RepositoryId == repositoryId)
             .ExecuteDeleteAsync(ct);
 
@@ -127,6 +130,22 @@ public class SqliteStore(RagDbContext db) : ISqliteStore
 
         await tx.CommitAsync(ct);
     }
+
+    public async Task<RepositoryFile?> GetFile(int repositoryId, string relPath, CancellationToken ct)
+    {
+        var file = await db.Files
+            .AsTracking()
+            .FirstOrDefaultAsync(x => x.RepositoryId == repositoryId && x.Path == relPath, ct);
+
+        return file;
+    }
+
+    public async Task CreateFile(RepositoryFile file, CancellationToken ct)
+    {
+        db.Files.Add(file);
+        await db.SaveChangesAsync(ct);
+    }
+
 
     public async Task<Repository> GetOrCreateRepositoryAsync(string repoRoot, CancellationToken ct)
     {
@@ -153,7 +172,7 @@ public class SqliteStore(RagDbContext db) : ISqliteStore
 
     public async Task<Dictionary<string, string>> GetFileHashesAsync(int repoId, CancellationToken ct)
     {
-        return await db.Chunks
+        return await db.Files
             .Where(c => c.RepositoryId == repoId)
             .GroupBy(c => c.Path)
             .Select(g => new { g.Key, Hash = g.Select(c => c.FileHash).First() })
@@ -164,10 +183,32 @@ public class SqliteStore(RagDbContext db) : ISqliteStore
                 ct);
     }
 
-    public async Task DeleteChunksForFileAsync(int repoId, string relativePath, CancellationToken ct)
+    public async Task DeleteChunksForFileAsync(
+        int repoId,
+        string relativePath,
+        CancellationToken ct)
+    {
+        var file = await db.Files
+            .Where(f => f.RepositoryId == repoId && f.Path == relativePath)
+            .Select(f => new { f.Id })
+            .SingleOrDefaultAsync(ct);
+
+        if (file == null)
+        {
+            return;
+        }
+
+        await db.Files
+            .Where(f => f.Id == file.Id)
+            .ExecuteDeleteAsync(ct);
+
+        await DeleteChunksForFileAsync(file.Id, ct);
+    }
+
+    public async Task DeleteChunksForFileAsync(int fileId, CancellationToken ct)
     {
         var toDelete = await db.Chunks
-            .Where(c => c.RepositoryId == repoId && c.Path == relativePath)
+            .Where(c => c.FileId == fileId)
             .ToListAsync(ct);
 
         if (toDelete.Count == 0)
@@ -185,22 +226,27 @@ public class SqliteStore(RagDbContext db) : ISqliteStore
         await db.SaveChangesAsync(ct);
     }
 
-    public IAsyncEnumerable<CodeChunk> GetAllChunksAsync(bool verbose, List<int>? repositoryIds = null, CancellationToken ct = default)
+    public IAsyncEnumerable<CodeChunkVm> GetAllChunksAsync(List<int>? repositoryIds = null, CancellationToken ct = default)
     {
         var baseQuery = db.Chunks.AsNoTracking();
 
         if (repositoryIds is not null && repositoryIds.Count > 0)
         {
-            baseQuery = baseQuery.Where(x => repositoryIds.Contains(x.RepositoryId));
+            baseQuery = baseQuery.Where(x => repositoryIds.Contains(x.File.RepositoryId));
         }
 
-        if (verbose)
+        return baseQuery.Select(x => new CodeChunkVm
         {
-            baseQuery = baseQuery.Include(x => x.Repository);
-        }
-
-
-        return baseQuery.AsAsyncEnumerable();
+            Id = x.Id,
+            FileId = x.FileId,
+            Embedding = x.Embedding,
+            Extension = x.File.Extension,
+            Language = x.File.Language,
+            Kind = x.File.Kind,
+            Path = x.File.Path,
+            Content = x.Content,
+            ChunkIndex = x.ChunkIndex
+        }).AsAsyncEnumerable();
     }
 
     public async Task SetRepositoryLastIndexDate(int repoId, CancellationToken ct)
@@ -211,5 +257,10 @@ public class SqliteStore(RagDbContext db) : ISqliteStore
             repo.LastIndexedAt = DateTime.UtcNow;
             await db.SaveChangesAsync(ct);
         }
+    }
+
+    public async Task SaveChanges(CancellationToken ct)
+    {
+        await db.SaveChangesAsync(ct);
     }
 }

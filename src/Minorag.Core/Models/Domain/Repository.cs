@@ -1,9 +1,12 @@
 #nullable disable
 
+using System.ComponentModel.DataAnnotations;
+
 namespace Minorag.Core.Models.Domain;
 
 public class Repository
 {
+    [Key]
     public int Id { get; set; }
 
     public int? ProjectId { get; set; }
@@ -16,5 +19,5 @@ public class Repository
 
     public virtual Project Project { get; set; }
 
-    public virtual ICollection<CodeChunk> Chunks { get; set; } = [];
+    public virtual ICollection<RepositoryFile> Files { get; set; } = [];
 }

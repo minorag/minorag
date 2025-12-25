@@ -28,7 +28,7 @@ public static class RepoRmCommandFactory
             var repoRoot = repoDir ?? RagEnvironment.GetRepoRootOrCurrent();
             var dbPath = dbFile?.FullName ?? RagEnvironment.GetDefaultDbPath();
 
-            using var host = HostFactory.BuildHost(dbPath);
+            using var host = await HostFactory.BuildHost(dbPath, ct);
             using var scope = host.Services.CreateScope();
 
             var console = scope.ServiceProvider.GetRequiredService<IMinoragConsole>();

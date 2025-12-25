@@ -40,7 +40,7 @@ public static class IndexCommandFactory
 
             Console.WriteLine($"Indexing '{repoRoot.FullName}' → '{dbPath}'");
 
-            using var host = HostFactory.BuildHost(dbPath);
+            using var host = await HostFactory.BuildHost(dbPath, cancellationToken);
             using var scope = host.Services.CreateScope();
 
             var dbContext = scope.ServiceProvider.GetRequiredService<RagDbContext>();

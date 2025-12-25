@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using Minorag.Core.Configuration;
 using Minorag.Core.Models;
 using Minorag.Core.Models.Domain;
+using Minorag.Core.Models.ViewModels;
 
 namespace Minorag.Core.Services;
 
@@ -51,14 +52,11 @@ public partial class MarkdownPromptFormatter : IPromptFormatter
                 var chunk = scored.Chunk;
                 var score = scored.Score;
 
-                var repoLabel = chunk.Repository?.Name
-                                ?? chunk.Repository?.RootPath
-                                ?? $"repo #{chunk.RepositoryId}";
 
                 var (language, contentForPrompt) = PrepareContent(chunk);
 
                 sb.AppendLine(
-                    $"### {rank}. `{chunk.Path}` (repo: `{repoLabel}`, score: {score:F3})");
+                    $"### {rank}. `{chunk.Path}` (score: {score:F3})");
 
                 if (!string.IsNullOrEmpty(language))
                 {
@@ -90,7 +88,7 @@ public partial class MarkdownPromptFormatter : IPromptFormatter
         return sb.ToString();
     }
 
-    private static (string Language, string Content) PrepareContent(CodeChunk chunk)
+    private static (string Language, string Content) PrepareContent(CodeChunkVm chunk)
     {
         var language = chunk.Language?.ToLowerInvariant() ?? string.Empty;
         var content = chunk.Content ?? string.Empty;

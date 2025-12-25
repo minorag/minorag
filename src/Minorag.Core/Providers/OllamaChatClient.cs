@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Options;
 using Minorag.Core.Models.Domain;
 using Minorag.Core.Models.Options;
+using Minorag.Core.Models.ViewModels;
 using Minorag.Core.Services;
 
 namespace Minorag.Core.Providers;
@@ -19,7 +20,7 @@ public class OllamaChatClient(
     public IAsyncEnumerable<string> AskStreamAsync(
         string question,
         bool useAdvancedModel,
-        IReadOnlyList<CodeChunk> context,
+        IReadOnlyList<CodeChunkVm> context,
         string? memorySummary,
         CancellationToken ct)
     {

@@ -1,6 +1,7 @@
 using System.Text;
 using Minorag.Core.Configuration;
 using Minorag.Core.Models.Domain;
+using Minorag.Core.Models.ViewModels;
 
 namespace Minorag.Core.Providers;
 
@@ -25,7 +26,7 @@ public sealed class RichPromptBuilder(string systemPrompt = RichPromptBuilder.De
 
     public string BuildPrompt(
         string question,
-        IReadOnlyList<CodeChunk> context,
+        IReadOnlyList<CodeChunkVm> context,
         string? memory = null)
     {
         // Start with “best effort” settings, then tighten until it fits.
@@ -51,7 +52,7 @@ public sealed class RichPromptBuilder(string systemPrompt = RichPromptBuilder.De
 
     private string Render(
         string question,
-        IReadOnlyList<CodeChunk> context,
+        IReadOnlyList<CodeChunkVm> context,
         string? memory,
         FitPlan plan)
     {
@@ -105,7 +106,7 @@ public sealed class RichPromptBuilder(string systemPrompt = RichPromptBuilder.De
     }
 
     private static void AppendContext(
-        IReadOnlyList<CodeChunk> context,
+        IReadOnlyList<CodeChunkVm> context,
         int takeChunks,
         int snippetChars,
         StringBuilder sb)
@@ -128,7 +129,6 @@ public sealed class RichPromptBuilder(string systemPrompt = RichPromptBuilder.De
             sb.AppendLine($"- Language: `{chunk.Language}`");
             sb.AppendLine($"- Extension: `{chunk.Extension}`");
             sb.AppendLine($"- Kind: `{chunk.Kind}`");
-            sb.AppendLine($"- Symbol: `{chunk.SymbolName ?? "(none)"}`");
             sb.AppendLine($"- ChunkIndex: `{chunk.ChunkIndex}`");
             sb.AppendLine();
 

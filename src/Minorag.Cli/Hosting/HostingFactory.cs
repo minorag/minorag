@@ -10,7 +10,7 @@ namespace Minorag.Cli.Hosting;
 
 public static class HostFactory
 {
-    public static IHost BuildHost(string dbPath)
+    public static async Task<IHost> BuildHost(string dbPath, CancellationToken ct)
     {
         var appBase = AppContext.BaseDirectory;
         var settings = new HostApplicationBuilderSettings
@@ -38,7 +38,9 @@ public static class HostFactory
         using (var scope = host.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<RagDbContext>();
-            db.Database.Migrate();
+            var applied = await db.Database.GetAppliedMigrationsAsync(ct);
+            var pending = await db.Database.GetPendingMigrationsAsync(ct);
+            await db.Database.MigrateAsync(ct);
         }
 
         return host;

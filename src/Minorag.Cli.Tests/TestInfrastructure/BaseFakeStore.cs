@@ -6,17 +6,32 @@ namespace Minorag.Cli.Tests.TestInfrastructure;
 
 public class BaseFakeStore : ISqliteStore
 {
+    public virtual Task CreateFile(RepositoryFile file, CancellationToken ct)
+    {
+        throw new NotImplementedException();
+    }
+
     public virtual Task DeleteChunksForFileAsync(int repoId, string relativePath, CancellationToken ct)
     {
         throw new NotImplementedException();
     }
 
-    public virtual IAsyncEnumerable<CodeChunk> GetAllChunksAsync(bool verbose, List<int>? repositoryIds = null, CancellationToken ct = default)
+    public virtual Task DeleteChunksForFileAsync(int fileId, CancellationToken ct)
     {
         throw new NotImplementedException();
     }
 
-    public Task<ClientVm[]> GetClients(CancellationToken ct)
+    public virtual IAsyncEnumerable<CodeChunkVm> GetAllChunksAsync(List<int>? repositoryIds = null, CancellationToken ct = default)
+    {
+        throw new NotImplementedException();
+    }
+
+    public virtual Task<ClientVm[]> GetClients(CancellationToken ct)
+    {
+        throw new NotImplementedException();
+    }
+
+    public virtual Task<RepositoryFile?> GetFile(int repositoryId, string relPath, CancellationToken ct)
     {
         throw new NotImplementedException();
     }
@@ -31,7 +46,7 @@ public class BaseFakeStore : ISqliteStore
         throw new NotImplementedException();
     }
 
-    public Task<ProjectVm[]> GetProjects(int[] clientIds, CancellationToken ct)
+    public virtual Task<ProjectVm[]> GetProjects(int[] clientIds, CancellationToken ct)
     {
         throw new NotImplementedException();
     }
@@ -41,7 +56,7 @@ public class BaseFakeStore : ISqliteStore
         throw new NotImplementedException();
     }
 
-    public Task<Repository?> GetRepositoryAsync(string repoRoot, CancellationToken ct)
+    public virtual Task<Repository?> GetRepositoryAsync(string repoRoot, CancellationToken ct)
     {
         throw new NotImplementedException();
     }
@@ -52,6 +67,11 @@ public class BaseFakeStore : ISqliteStore
     }
 
     public virtual Task RemoveRepository(int repositoryId, CancellationToken ct)
+    {
+        throw new NotImplementedException();
+    }
+
+    public virtual Task SaveChanges(CancellationToken ct)
     {
         throw new NotImplementedException();
     }

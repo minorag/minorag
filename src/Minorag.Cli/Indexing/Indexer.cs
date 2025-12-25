@@ -115,7 +115,32 @@ public class Indexer(
 
     private async Task ProcessFile(Repository repository, string ext, string relPath, FileContent content, CancellationToken ct)
     {
-        await store.DeleteChunksForFileAsync(repository.Id, relPath, ct);
+        var dbFile = await store.GetFile(repository.Id, relPath, ct);
+
+        if (dbFile is not null)
+        {
+            await store.DeleteChunksForFileAsync(dbFile.Id, ct);
+            dbFile.Content = content.Content;
+            dbFile.Language = chunkHelper.GuessLanguage(ext);
+            dbFile.FileHash = content.Hash;
+            await store.SaveChanges(ct);
+        }
+        else
+        {
+            dbFile = new RepositoryFile
+            {
+                RepositoryId = repository.Id,
+                Path = relPath,
+                Extension = ext,
+                Language = chunkHelper.GuessLanguage(ext),
+                Kind = "file",
+                SymbolName = null,
+                Content = content.Content,
+                FileHash = content.Hash,
+            };
+
+            await store.CreateFile(dbFile, ct);
+        }
 
         var chunkIndex = 0;
 
@@ -144,14 +169,8 @@ public class Indexer(
 
             var chunk = new CodeChunk
             {
-                RepositoryId = repository.Id,
-                Path = relPath,
-                Extension = ext,
-                Language = chunkHelper.GuessLanguage(ext),
-                Kind = "file",
-                SymbolName = null,
+                FileId = dbFile.Id,
                 Content = chunkContent,
-                FileHash = content.Hash,
                 ChunkIndex = chunkIndex++
             };
 
@@ -161,7 +180,7 @@ public class Indexer(
             }
             catch (Exception ex)
             {
-                var error = $"[yellow bold] ⚠️ Failed to embed[/] [cyan]{console.EscapeMarkup(chunk.Path)}[/]: [red]{console.EscapeMarkup(ex.Message)} [/]";
+                var error = $"[yellow bold] ⚠️ Failed to embed[/] [cyan]{console.EscapeMarkup(dbFile.Path)}[/]: [red]{console.EscapeMarkup(ex.Message)} [/]";
                 console.WriteMarkupLine(error);
 
                 await store.DeleteChunksForFileAsync(repository.Id, relPath, ct);
@@ -169,7 +188,15 @@ public class Indexer(
                 break;
             }
 
-            await store.InsertChunkAsync(chunk, ct);
+            try
+            {
+                await store.InsertChunkAsync(chunk, ct);
+
+            }
+            catch
+            {
+                throw;
+            }
         }
     }
 

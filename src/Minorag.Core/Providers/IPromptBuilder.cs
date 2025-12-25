@@ -1,4 +1,5 @@
 using Minorag.Core.Models.Domain;
+using Minorag.Core.Models.ViewModels;
 
 namespace Minorag.Core.Providers;
 
@@ -10,6 +11,6 @@ public interface IPromptBuilder
     /// </summary>
     string BuildPrompt(
         string question,
-        IReadOnlyList<CodeChunk> context,
+        IReadOnlyList<CodeChunkVm> context,
         string? memory = null);
 }

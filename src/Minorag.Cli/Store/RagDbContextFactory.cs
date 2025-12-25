@@ -1,8 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.Extensions.Configuration;
-using Minorag.Core.Services;
 using Minorag.Core.Store;
+using Minorag.Core.Services;
 
 namespace Minorag.Cli.Store;
 
@@ -10,7 +10,6 @@ public sealed class RagDbContextFactory : IDesignTimeDbContextFactory<RagDbConte
 {
     public RagDbContext CreateDbContext(string[] args)
     {
-        // Match your runtime configuration as closely as possible
         var basePath = AppContext.BaseDirectory;
 
         var configuration = new ConfigurationBuilder()
@@ -20,11 +19,12 @@ public sealed class RagDbContextFactory : IDesignTimeDbContextFactory<RagDbConte
             .AddEnvironmentVariables(prefix: "MINORAG_")
             .Build();
 
-        // Same logic as you effectively use via DatabaseOptions/RagEnvironment
         var dbPath = RagEnvironment.GetDefaultDbPath();
 
         var optionsBuilder = new DbContextOptionsBuilder<RagDbContext>();
-        optionsBuilder.UseSqlite($"Data Source={dbPath}");
+        optionsBuilder.UseSqlite(
+            $"Data Source={dbPath}",
+            b => b.MigrationsAssembly("Minorag.Cli"));
 
         return new RagDbContext(optionsBuilder.Options);
     }

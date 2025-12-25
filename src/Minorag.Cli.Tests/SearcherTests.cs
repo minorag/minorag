@@ -1,5 +1,6 @@
 using Minorag.Cli.Tests.TestInfrastructure;
 using Minorag.Core.Models.Domain;
+using Minorag.Core.Models.ViewModels;
 using Minorag.Core.Services;
 
 namespace Minorag.Cli.Tests;
@@ -9,13 +10,11 @@ public class SearcherTests
     [Fact]
     public async Task RetrieveAsync_EmptyQuestion_ThrowsArgumentException()
     {
-        // Arrange
         var store = new SearchFakeStore();
         var embedding = new FakeEmbeddingProvider();
         var llm = new FakeLlmClient();
         var searcher = new Searcher(store, embedding, llm);
 
-        // Act & Assert
         await Assert.ThrowsAsync<ArgumentException>(() =>
             searcher.RetrieveAsync("   ", verbose: false, topK: 5, ct: CancellationToken.None));
     }
@@ -23,19 +22,13 @@ public class SearcherTests
     [Fact]
     public async Task RetrieveAsync_NoChunks_ReturnsEmptyContext()
     {
-        // Arrange
         var store = new SearchFakeStore(); // no chunks
-        var embedding = new FakeEmbeddingProvider
-        {
-            EmbeddingToReturn = [1f, 0f, 0f]
-        };
+        var embedding = new FakeEmbeddingProvider { EmbeddingToReturn = [1f, 0f, 0f] };
         var llm = new FakeLlmClient();
         var searcher = new Searcher(store, embedding, llm);
 
-        // Act
         var context = await searcher.RetrieveAsync("some question", verbose: false, topK: 5, ct: CancellationToken.None);
 
-        // Assert
         Assert.Equal("some question", context.Question);
         Assert.False(context.HasResults);
         Assert.Empty(context.Chunks);
@@ -44,29 +37,21 @@ public class SearcherTests
     [Fact]
     public async Task RetrieveAsync_FiltersByEmbeddingLength_AndOrdersByCosineSimilarity()
     {
-        // Arrange
         var store = new SearchFakeStore();
-        var embedding = new FakeEmbeddingProvider
-        {
-            // Query embedding: along X axis
-            EmbeddingToReturn = [1f, 0f, 0f]
-        };
+        var embedding = new FakeEmbeddingProvider { EmbeddingToReturn = [1f, 0f, 0f] };
         var llm = new FakeLlmClient();
 
         var chunkSameDirection = TestChunkFactory.CreateChunk(
             id: 1L,
-            embedding: [1f, 0f, 0f] // cos = 1.0
-        );
+            embedding: [1f, 0f, 0f]);
 
         var chunkDiagonal = TestChunkFactory.CreateChunk(
             id: 2L,
-            embedding: [1f, 1f, 0f] // cos ~ 0.707
-        );
+            embedding: [1f, 1f, 0f]);
 
         var chunkDifferentLength = TestChunkFactory.CreateChunk(
             id: 3L,
-            embedding: [1f, 0f] // should be skipped
-        );
+            embedding: [1f, 0f]); // should be skipped
 
         store.Chunks.Add(chunkSameDirection);
         store.Chunks.Add(chunkDiagonal);
@@ -74,14 +59,11 @@ public class SearcherTests
 
         var searcher = new Searcher(store, embedding, llm);
 
-        // Act
         var context = await searcher.RetrieveAsync("question", verbose: false, topK: 10, ct: CancellationToken.None);
 
-        // Assert
         Assert.True(context.HasResults);
-        Assert.Equal(2, context.Chunks.Count); // the different-length one is skipped
+        Assert.Equal(2, context.Chunks.Count);
 
-        // Ordered by score desc → chunkSameDirection first
         Assert.Equal(1L, context.Chunks[0].Chunk.Id);
         Assert.Equal(2L, context.Chunks[1].Chunk.Id);
 
@@ -91,29 +73,21 @@ public class SearcherTests
     [Fact]
     public async Task RetrieveAsync_RespectsTopK()
     {
-        // Arrange
         var store = new SearchFakeStore();
-        var embedding = new FakeEmbeddingProvider
-        {
-            EmbeddingToReturn = new[] { 1f, 0f }
-        };
+        var embedding = new FakeEmbeddingProvider { EmbeddingToReturn = [1f, 0f] };
         var llm = new FakeLlmClient();
 
-        // 5 chunks with non-zero embeddings of same length
         for (var i = 0; i < 5; i++)
         {
             store.Chunks.Add(TestChunkFactory.CreateChunk(
                 id: i + 1L,
-                embedding: [1f, i] // different directions, but valid
-            ));
+                embedding: [1f, i]));
         }
 
         var searcher = new Searcher(store, embedding, llm);
 
-        // Act
         var context = await searcher.RetrieveAsync("q", verbose: false, topK: 3, ct: CancellationToken.None);
 
-        // Assert
         Assert.True(context.HasResults);
         Assert.Equal(3, context.Chunks.Count);
     }
@@ -126,15 +100,38 @@ public class SearcherTests
     {
         public List<CodeChunk> Chunks { get; } = [];
 
-        public override async IAsyncEnumerable<CodeChunk> GetAllChunksAsync(
-            bool verbose,
+        public override async IAsyncEnumerable<CodeChunkVm> GetAllChunksAsync(
             List<int>? repositoryIds,
             [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
         {
             foreach (var chunk in Chunks)
             {
                 ct.ThrowIfCancellationRequested();
-                yield return chunk;
+
+                // Searcher now relies on chunk.File.RepositoryId (since repoId moved off chunk).
+                if (chunk.File == null)
+                {
+                    throw new InvalidOperationException("Test chunk is missing File navigation. Fix TestChunkFactory or test data.");
+                }
+
+                // Respect repository filtering if Searcher provides it
+                if (repositoryIds is { Count: > 0 } && !repositoryIds.Contains(chunk.File.RepositoryId))
+                {
+                    await Task.Yield();
+                    continue;
+                }
+
+                yield return new CodeChunkVm
+                {
+                    Id = chunk.Id,
+                    Path = chunk.File.Path,
+                    Language = chunk.File.Language,
+                    Kind = chunk.File.Kind,
+                    Content = chunk.Content,
+                    Extension = chunk.File.Extension,
+                    Embedding = chunk.Embedding,
+                };
+
                 await Task.Yield();
             }
         }

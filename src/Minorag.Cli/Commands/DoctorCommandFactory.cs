@@ -26,7 +26,7 @@ public static class DoctorCommandFactory
 
             var repoRoot = RagEnvironment.GetRepoRootOrCurrent();
 
-            using var host = HostFactory.BuildHost(dbPath);
+            using var host = await HostFactory.BuildHost(dbPath, ct);
             using var scope = host.Services.CreateScope();
             var console = scope.ServiceProvider.GetRequiredService<IMinoragConsole>();
             var doctor = scope.ServiceProvider.GetRequiredService<IEnvironmentDoctor>();
