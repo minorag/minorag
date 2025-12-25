@@ -222,3 +222,94 @@
 .dialog-body {
   padding: 10px 12px;
 }
+
+/* ===== Mobile / narrow ===== */
+@media (max-width: 600px) {
+  .messages {
+    padding: 10px;
+    gap: 8px;
+  }
+
+  .bubble {
+    max-width: 92%;
+    font-size: 14px;
+    line-height: 1.45;
+    padding: 8px 10px;
+    border-radius: 12px;
+  }
+
+  /* Reduce huge code blocks on phones */
+  .bubble.markdown pre {
+    padding: 8px;
+    border-radius: 10px;
+    font-size: 12px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Input becomes two rows: text+send, then settings */
+  .input {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      'field send'
+      'settings settings';
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .input input {
+    grid-area: field;
+    min-height: 40px;
+    font-size: 14px;
+  }
+
+  .input button[type='submit'] {
+    grid-area: send;
+    min-height: 40px;
+    padding: 0 14px;
+    font-size: 14px;
+  }
+
+  .settings-btn {
+    grid-area: settings;
+    width: 100%;
+    min-height: 40px;
+    border-radius: 10px;
+  }
+
+  /* Statusbar: smaller + optional hide */
+  .statusbar {
+    padding: 4px 10px;
+    font-size: 11px;
+  }
+
+  /* Modal fits phone + safe areas */
+  .dialog-backdrop {
+    padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
+  }
+
+  .dialog {
+    width: 100%;
+    max-height: 85vh;
+    border-radius: 14px;
+  }
+}
+
+/* ===== Very narrow phones ===== */
+@media (max-width: 360px) {
+  .bubble {
+    max-width: 96%;
+  }
+  .statusbar {
+    display: none; /* optional: reclaim space */
+  }
+}
+
+.settings-label {
+  margin-left: 6px;
+}
+@media (min-width: 601px) {
+  .settings-label {
+    display: none;
+  } /* keep desktop icon-only */
+}

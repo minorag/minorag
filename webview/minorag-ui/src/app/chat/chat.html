@@ -29,7 +29,7 @@
       {{ busy() ? '…' : 'Send' }}
     </button>
     <button type="button" class="settings-btn" (click)="openSettings()" [disabled]="busy()">
-      ⚙︎
+      ⚙︎ <span class="settings-label">Settings</span>
     </button>
   </form>
   <div class="statusbar">
