@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Minorag.Core.Store;
 
@@ -10,9 +11,11 @@ using Minorag.Core.Store;
 namespace Minorag.Cli.Migrations
 {
     [DbContext(typeof(RagDbContext))]
-    partial class RagDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251225132459_RemovedFieldsFromChunks")]
+    partial class RemovedFieldsFromChunks
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "8.0.22");

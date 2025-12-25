@@ -1,9 +1,12 @@
 # nullable disable
 
+using System.ComponentModel.DataAnnotations;
+
 namespace Minorag.Core.Models.Domain;
 
 public class Project
 {
+    [Key]
     public int Id { get; init; }
     public int ClientId { get; init; }
     public string Name { get; init; } = null!;

@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Minorag.Core.Store;
 
@@ -10,9 +11,11 @@ using Minorag.Core.Store;
 namespace Minorag.Cli.Migrations
 {
     [DbContext(typeof(RagDbContext))]
-    partial class RagDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251225115528_AddedFiles")]
+    partial class AddedFiles
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "8.0.22");
@@ -60,14 +63,55 @@ namespace Minorag.Cli.Migrations
                         .HasColumnType("BLOB")
                         .HasColumnName("embedding");
 
+                    b.Property<string>("Extension")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("extension");
+
+                    b.Property<string>("FileHash")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("file_hash");
+
                     b.Property<int>("FileId")
                         .HasColumnType("INTEGER")
                         .HasColumnName("file_id");
 
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("kind");
+
+                    b.Property<string>("Language")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("language");
+
+                    b.Property<string>("Path")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("path");
+
+                    b.Property<int>("RepositoryId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("repository_id");
+
+                    b.Property<string>("SymbolName")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("symbol_name");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("FileId", "ChunkIndex")
-                        .HasDatabaseName("idx_chunks_file_index");
+                    b.HasIndex("Extension")
+                        .HasDatabaseName("idx_chunks_extension");
+
+                    b.HasIndex("FileId");
+
+                    b.HasIndex("Path")
+                        .HasDatabaseName("idx_chunks_path");
+
+                    b.HasIndex("RepositoryId", "Path")
+                        .HasDatabaseName("idx_chunks_repo_path");
 
                     b.ToTable("chunks", (string)null);
                 });
@@ -180,8 +224,7 @@ namespace Minorag.Cli.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("RepositoryId", "Path")
-                        .HasDatabaseName("idx_file_repo_path");
+                    b.HasIndex("RepositoryId");
 
                     b.ToTable("files", (string)null);
                 });
@@ -194,7 +237,15 @@ namespace Minorag.Cli.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Minorag.Core.Models.Domain.Repository", "Repository")
+                        .WithMany("Chunks")
+                        .HasForeignKey("RepositoryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.Navigation("File");
+
+                    b.Navigation("Repository");
                 });
 
             modelBuilder.Entity("Minorag.Core.Models.Domain.Project", b =>
@@ -240,6 +291,8 @@ namespace Minorag.Cli.Migrations
 
             modelBuilder.Entity("Minorag.Core.Models.Domain.Repository", b =>
                 {
+                    b.Navigation("Chunks");
+
                     b.Navigation("Files");
                 });
 

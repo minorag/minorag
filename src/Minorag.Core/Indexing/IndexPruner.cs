@@ -25,16 +25,12 @@ public sealed class IndexPruner(RagDbContext db, IFileSystemHelper fs) : IIndexP
         var totalChunks = await db.Chunks.CountAsync(ct);
         var totalClients = await db.Clients.CountAsync(ct);
         var totalProjects = await db.Projects.CountAsync(ct);
-        var totalFiles = await db.Chunks
-                                    .AsNoTracking()
-                                    .Select(c => c.Path)
-                                    .Distinct()
-                                    .CountAsync(ct);
-
+        var totalFiles = await db.Files.CountAsync(ct);
 
         var orphanedChunksQuery = from c in db.Chunks
-                                  from r in db.Repositories.Where(x => x.Id == c.RepositoryId).DefaultIfEmpty()
-                                  where r == null
+                                  from f in db.Files.Where(x => x.Id == c.FileId).DefaultIfEmpty()
+                                  from r in db.Repositories.Where(x => x.Id == f.RepositoryId).DefaultIfEmpty()
+                                  where r == null || f == null
                                   select c.Id;
 
         var orphanedChunks = await orphanedChunksQuery.CountAsync(ct);
@@ -86,16 +82,16 @@ public sealed class IndexPruner(RagDbContext db, IFileSystemHelper fs) : IIndexP
 
         var chunkInfos = await db.Chunks
             .AsNoTracking()
-            .Select(c => new { c.Id, c.RepositoryId, c.Path })
+            .Select(c => new { c.Id, RepoId = c.File.RepositoryId, Path = c.File.Path })
             .ToListAsync(ct);
 
         var missingFileChunkIds = new List<long>();
         var missingFileRecords = new HashSet<(int RepoId, string Path)>();
         var missingFileSamples = new List<MissingFileRecord>();
 
-        foreach (var c in chunkInfos.GroupBy(x => new { x.Path, x.RepositoryId }))
+        foreach (var c in chunkInfos.GroupBy(x => new { x.Path, x.RepoId }))
         {
-            var repoId = c.Key.RepositoryId;
+            var repoId = c.Key.RepoId;
             if (!existingRepoRoots.TryGetValue(repoId, out var rootPath))
             {
                 continue;
@@ -175,7 +171,7 @@ public sealed class IndexPruner(RagDbContext db, IFileSystemHelper fs) : IIndexP
                 var missingRepoIds = missingRepos.Select(r => r.Id).ToList();
 
                 await db.Chunks
-                    .Where(c => missingRepoIds.Contains(c.RepositoryId))
+                    .Where(c => missingRepoIds.Contains(c.File.RepositoryId))
                     .ExecuteDeleteAsync(ct);
 
                 await db.Repositories
@@ -186,15 +182,26 @@ public sealed class IndexPruner(RagDbContext db, IFileSystemHelper fs) : IIndexP
             if (status.OrphanedChunks > 0)
             {
                 var orphanChunkIdsQuery =
-                    from c in db.Chunks
-                    join r in db.Repositories on c.RepositoryId equals r.Id into repos
-                    from r in repos.DefaultIfEmpty()
-                    where r == null
-                    select c.Id;
+                from c in db.Chunks
+                join f in db.Files on c.FileId equals f.Id into files
+                from f in files.DefaultIfEmpty()
+                where f == null
+                select c.Id;
 
-                // ExecuteDeleteAsync supports subqueries; avoid loading IDs into memory.
                 await db.Chunks
                     .Where(c => orphanChunkIdsQuery.Contains(c.Id))
+                    .ExecuteDeleteAsync(ct);
+
+
+                var orphanFileIdsQuery =
+                from f in db.Files
+                join r in db.Repositories on f.RepositoryId equals r.Id into repos
+                from r in repos.DefaultIfEmpty()
+                where r == null
+                select f.Id;
+
+                await db.Files
+                    .Where(f => orphanFileIdsQuery.Contains(f.Id))
                     .ExecuteDeleteAsync(ct);
             }
 

@@ -1,7 +1,7 @@
 using System.Runtime.CompilerServices;
 using Minorag.Core.Configuration;
 using Minorag.Core.Models;
-using Minorag.Core.Models.Domain;
+using Minorag.Core.Models.ViewModels;
 using Minorag.Core.Providers;
 using Minorag.Core.Store;
 
@@ -63,12 +63,14 @@ public class Searcher(
 
         BlendMemoryEmbedding(memoryEmbedding, queryEmbedding);
 
-        var scored = new List<(CodeChunk Chunk, float Score)>();
+        var scored = new List<(CodeChunkVm Chunk, float Score)>();
 
-        await foreach (var chunk in store.GetAllChunksAsync(verbose, repositoryIds, ct))
+        await foreach (var chunk in store.GetAllChunksAsync(repositoryIds, ct))
         {
             if (chunk.Embedding.Length == 0)
+            {
                 continue;
+            }
 
             var score = CosineSimilarity(chunk.Embedding, queryEmbedding);
 

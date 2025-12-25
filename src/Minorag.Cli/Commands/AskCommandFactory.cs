@@ -41,7 +41,7 @@ public static class AskCommandFactory
             var verbose = parseResult.GetValue(CliOptions.VerboseOption);
             var noLlm = parseResult.GetValue(CliOptions.NoLlmOption);
 
-            using var host = HostFactory.BuildHost(dbPath);
+            using var host = await HostFactory.BuildHost(dbPath, ct);
             using var scope = host.Services.CreateScope();
 
             var searcher = scope.ServiceProvider.GetRequiredService<ISearcher>();

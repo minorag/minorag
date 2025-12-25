@@ -1,5 +1,5 @@
-using Minorag.Core.Models.Domain;
+using Minorag.Core.Models.ViewModels;
 
 namespace Minorag.Core.Models;
 
-public sealed record ScoredChunk(CodeChunk Chunk, float Score);
+public sealed record ScoredChunk(CodeChunkVm Chunk, float Score);

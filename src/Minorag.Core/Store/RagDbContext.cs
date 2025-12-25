@@ -11,6 +11,7 @@ public class RagDbContext(DbContextOptions<RagDbContext> options) : DbContext(op
     public DbSet<Repository> Repositories => Set<Repository>();
     public DbSet<Client> Clients => Set<Client>();
     public DbSet<Project> Projects => Set<Project>();
+    public DbSet<RepositoryFile> Files => Set<RepositoryFile>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -81,44 +82,66 @@ public class RagDbContext(DbContextOptions<RagDbContext> options) : DbContext(op
             .WithMany(x => x.Repositories)
             .HasForeignKey(x => x.ProjectId);
 
+        var file = modelBuilder.Entity<RepositoryFile>();
+
+        file.ToTable("files");
+
+        file.Property(x => x.Id).HasColumnName("id");
+        file.Property(x => x.RepositoryId).HasColumnName("repository_id");
+
+        file.HasKey(c => c.Id);
+        file.HasOne(c => c.Repository)
+                 .WithMany(r => r.Files)
+                 .HasForeignKey(c => c.RepositoryId)
+                 .OnDelete(DeleteBehavior.Cascade);
+
+        file.Property(c => c.Path)
+            .IsRequired()
+            .HasColumnName("path");
+
+        file.Property(c => c.Extension)
+            .IsRequired()
+            .HasColumnName("extension");
+
+        file.Property(c => c.Language)
+            .IsRequired()
+            .HasColumnName("language");
+
+        file.Property(c => c.Kind)
+            .IsRequired()
+            .HasColumnName("kind");
+
+        file.Property(c => c.SymbolName)
+            .HasColumnName("symbol_name");
+
+        file.Property(c => c.Content)
+            .IsRequired()
+            .HasColumnName("content");
+
+        file.Property(c => c.FileHash)
+            .IsRequired()
+            .HasColumnName("file_hash");
+
+        file.HasIndex(c => new { c.RepositoryId, c.Path }).HasDatabaseName("idx_file_repo_path");
+
         var chunk = modelBuilder.Entity<CodeChunk>();
 
         chunk.ToTable("chunks");
 
         chunk.Property(x => x.Id).HasColumnName("id");
-        chunk.Property(x => x.RepositoryId).HasColumnName("repository_id");
 
         chunk.HasKey(c => c.Id);
-        chunk.HasOne(c => c.Repository)
-                 .WithMany(r => r.Chunks)
-                 .HasForeignKey(c => c.RepositoryId)
-                 .OnDelete(DeleteBehavior.Cascade);
-        chunk.Property(c => c.Path)
-            .IsRequired()
-            .HasColumnName("path");
 
-        chunk.Property(c => c.Extension)
-            .IsRequired()
-            .HasColumnName("extension");
+        chunk.Property(x => x.FileId).HasColumnName("file_id");
 
-        chunk.Property(c => c.Language)
-            .IsRequired()
-            .HasColumnName("language");
-
-        chunk.Property(c => c.Kind)
-            .IsRequired()
-            .HasColumnName("kind");
-
-        chunk.Property(c => c.SymbolName)
-            .HasColumnName("symbol_name");
+        chunk.HasOne(c => c.File)
+                       .WithMany(r => r.Chunks)
+                       .HasForeignKey(c => c.FileId)
+                       .OnDelete(DeleteBehavior.Cascade);
 
         chunk.Property(c => c.Content)
             .IsRequired()
             .HasColumnName("content");
-
-        chunk.Property(c => c.FileHash)
-            .IsRequired()
-            .HasColumnName("file_hash");
 
         chunk.Property(c => c.ChunkIndex)
             .HasColumnName("chunk_index");
@@ -145,9 +168,7 @@ public class RagDbContext(DbContextOptions<RagDbContext> options) : DbContext(op
 
         embeddingProperty.Metadata.SetValueComparer(embeddingComparer);
 
-        chunk.HasIndex(c => c.Path).HasDatabaseName("idx_chunks_path");
-        chunk.HasIndex(c => c.Extension).HasDatabaseName("idx_chunks_extension");
-        chunk.HasIndex(c => new { c.RepositoryId, c.Path }).HasDatabaseName("idx_chunks_repo_path");
+        chunk.HasIndex(c => new { c.FileId, c.ChunkIndex }).HasDatabaseName("idx_chunks_file_index");
     }
 
     private static byte[] FloatArrayToBytes(float[] array)

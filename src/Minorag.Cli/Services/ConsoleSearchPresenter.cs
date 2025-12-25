@@ -67,17 +67,6 @@ public partial class ConsoleSearchPresenter(IMinoragConsole console) : IConsoleS
             console.PrintSeparator();
             console.WriteMarkupLine($"[grey][[ {rank} ]][/]: [cyan]{console.EscapeMarkup(chunk.Path)}[/]  (score: [green]{score:F3}[/])");
 
-            var repoLabel = chunk.Repository?.Name
-                            ?? chunk.Repository?.RootPath
-                            ?? $"repo #{chunk.RepositoryId}";
-
-            console.WriteMarkupLine($"      repo: [blue]{console.EscapeMarkup(repoLabel)}[/]");
-
-            if (!string.IsNullOrEmpty(chunk.SymbolName))
-            {
-                console.WriteMarkupLine($"      symbol: [purple]{console.EscapeMarkup(chunk.SymbolName)}[/]");
-            }
-
             console.WriteLine();
 
             const int maxLines = 40;

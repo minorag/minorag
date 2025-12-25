@@ -10,21 +10,17 @@ public class SqliteStoreTests
     [Fact]
     public async Task GetRepositoryAsync_NotFound_ReturnsNull()
     {
-        // Arrange
         var (db, store) = CreateStore();
         using var _ = db;
 
-        // Act
         var repo = await store.GetRepositoryAsync(NormalizePath("/tmp/does-not-exist"), CancellationToken.None);
 
-        // Assert
         Assert.Null(repo);
     }
 
     [Fact]
     public async Task GetRepositoryAsync_Found_ReturnsRepository()
     {
-        // Arrange
         var (db, store) = CreateStore();
         using var _ = db;
 
@@ -37,10 +33,8 @@ public class SqliteStoreTests
         db.Repositories.Add(repo);
         await db.SaveChangesAsync();
 
-        // Act
         var result = await store.GetRepositoryAsync(rootPath, CancellationToken.None);
 
-        // Assert
         Assert.NotNull(result);
         Assert.Equal(rootPath, result!.RootPath);
         Assert.Equal("repo1", result.Name);
@@ -49,26 +43,22 @@ public class SqliteStoreTests
     [Fact]
     public async Task GetOrCreateRepositoryAsync_Creates_WhenNotExists()
     {
-        // Arrange
         var (db, store) = CreateStore();
         using var _ = db;
 
         var rootPath = NormalizePath("/tmp/new-repo");
 
-        // Act
         var repo = await store.GetOrCreateRepositoryAsync(rootPath, CancellationToken.None);
 
-        // Assert
         Assert.NotNull(repo);
         Assert.True(repo.Id > 0);
         Assert.Equal(rootPath, repo.RootPath);
-        Assert.Equal("new-repo", repo.Name); // Path.GetFileName(rootPath)
+        Assert.Equal("new-repo", repo.Name);
     }
 
     [Fact]
     public async Task GetOrCreateRepositoryAsync_ReturnsExisting_WhenAlreadyThere()
     {
-        // Arrange
         var (db, store) = CreateStore();
         using var _ = db;
 
@@ -81,10 +71,8 @@ public class SqliteStoreTests
         db.Repositories.Add(existing);
         await db.SaveChangesAsync();
 
-        // Act
         var repo = await store.GetOrCreateRepositoryAsync(rootPath, CancellationToken.None);
 
-        // Assert
         Assert.Equal(existing.Id, repo.Id);
         Assert.Equal("existing-repo", repo.Name);
         Assert.Equal(rootPath, repo.RootPath);
@@ -93,7 +81,6 @@ public class SqliteStoreTests
     [Fact]
     public async Task RemoveRepository_RemovesRepoAndAssociatedChunks()
     {
-        // Arrange
         var (db, store) = CreateStore();
         using var _ = db;
 
@@ -105,9 +92,14 @@ public class SqliteStoreTests
         db.Repositories.Add(repo);
         await db.SaveChangesAsync();
 
+        var file1 = CreateFile(repo.Id, "src/code1.cs", fileHash: "H1");
+        var file2 = CreateFile(repo.Id, "src/code2.cs", fileHash: "H2");
+        db.Files.AddRange(file1, file2);
+        await db.SaveChangesAsync();
+
         db.Chunks.AddRange(
-            CreateChunk(repo.Id, "src/code1.cs", chunkIndex: 0, fileHash: "H1"),
-            CreateChunk(repo.Id, "src/code2.cs", chunkIndex: 1, fileHash: "H2")
+            CreateChunk(file1.Id, chunkIndex: 0, relativePathForContent: file1.Path),
+            CreateChunk(file2.Id, chunkIndex: 1, relativePathForContent: file2.Path)
         );
 
         var otherRepo = new Repository
@@ -115,46 +107,47 @@ public class SqliteStoreTests
             RootPath = NormalizePath("/tmp/other-repo"),
             Name = "other-repo"
         };
-
         db.Repositories.Add(otherRepo);
         await db.SaveChangesAsync();
 
-        db.Chunks.Add(
-            CreateChunk(otherRepo.Id, "src/other.cs", chunkIndex: 0, fileHash: "H3")
-        );
+        var otherFile = CreateFile(otherRepo.Id, "src/other.cs", fileHash: "H3");
+        db.Files.Add(otherFile);
+        await db.SaveChangesAsync();
+
+        db.Chunks.Add(CreateChunk(otherFile.Id, chunkIndex: 0, relativePathForContent: otherFile.Path));
 
         await db.SaveChangesAsync();
 
-        // Act
         await store.RemoveRepository(repo.Id, CancellationToken.None);
 
-        // Assert
         var repos = await db.Repositories.ToListAsync();
         Assert.DoesNotContain(repos, r => r.Id == repo.Id);
         Assert.Contains(repos, r => r.Id == otherRepo.Id);
 
+        var files = await db.Files.ToListAsync();
+        Assert.DoesNotContain(files, f => f.RepositoryId == repo.Id);
+        Assert.Contains(files, f => f.RepositoryId == otherRepo.Id);
+
         var chunks = await db.Chunks.ToListAsync();
-        Assert.DoesNotContain(chunks, c => c.RepositoryId == repo.Id);
-        Assert.Contains(chunks,
-            c => c.RepositoryId == otherRepo.Id &&
-          NormalizePath(c.Path).EndsWith("src/other.cs", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(chunks, c => c.File.RepositoryId == repo.Id);
+
+        Assert.Contains(chunks, c =>
+            c.File.RepositoryId == otherRepo.Id &&
+            NormalizePath(c.File.Path).EndsWith("src/other.cs", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
     public async Task RemoveRepository_IsIdempotent_WhenRepoDoesNotExist()
     {
-        // Arrange
         var (db, store) = CreateStore();
         using var _ = db;
 
-        // Act & Assert: should not throw if repo is already gone / never existed
         await store.RemoveRepository(repositoryId: 123456, CancellationToken.None);
     }
 
     [Fact]
     public async Task SetRepositoryLastIndexDate_SetsUtcTimestamp()
     {
-        // Arrange
         var (db, store) = CreateStore();
         using var _ = db;
 
@@ -166,17 +159,13 @@ public class SqliteStoreTests
         db.Repositories.Add(repo);
         await db.SaveChangesAsync();
 
-        // Act
         await store.SetRepositoryLastIndexDate(repo.Id, CancellationToken.None);
 
-        // Assert
         var updated = await db.Repositories.FirstAsync(r => r.Id == repo.Id);
         Assert.NotNull(updated.LastIndexedAt);
 
         var now = DateTime.UtcNow;
         var diff = now - updated.LastIndexedAt!.Value;
-
-        // Should be reasonably recent
         Assert.True(diff.TotalMinutes < 1);
     }
 
@@ -192,28 +181,32 @@ public class SqliteStoreTests
     }
 
     private static string NormalizePath(string path)
-        => Path.GetFullPath(path)
-            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        => path.Replace('\\', '/');
 
-    /// <summary>
-    /// Creates a CodeChunk shaped similarly to what Indexer writes.
-    /// Adjust fields if your CodeChunk has more required properties.
-    /// </summary>
-    private static CodeChunk CreateChunk(
-        int repositoryId,
-        string relativePath,
-        int chunkIndex,
-        string fileHash)
+    private static RepositoryFile CreateFile(int repositoryId, string relativePath, string fileHash)
     {
-        return new CodeChunk
+        var ext = Path.GetExtension(relativePath).TrimStart('.');
+        return new RepositoryFile
         {
             RepositoryId = repositoryId,
             Path = NormalizePath(relativePath),
-            Extension = Path.GetExtension(relativePath).TrimStart('.'),
+            Extension = ext,
             Language = "csharp",
+            Kind = "file",
+            SymbolName = null,
+            Content = $"// file content for {relativePath}",
+            FileHash = fileHash
+        };
+    }
+
+    private static CodeChunk CreateChunk(int fileId, int chunkIndex, string relativePathForContent)
+    {
+        return new CodeChunk
+        {
+            FileId = fileId,
             ChunkIndex = chunkIndex,
-            FileHash = fileHash,
-            Content = $"// chunk {chunkIndex} for {relativePath}"
+            Content = $"// chunk {chunkIndex} for {relativePathForContent}",
+            Embedding = []
         };
     }
 }
