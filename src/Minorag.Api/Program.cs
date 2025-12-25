@@ -186,7 +186,7 @@ api.MapPost("/ask", async Task<IResult> (
             foreach (var c in context.Chunks)
             {
                 var score = c.Score.ToString("0.000"); // nicer
-                await stream.WriteLine($"|`{c.Chunk.Path}`|{score}|", ct);
+                await stream.WriteLine($"|`{c.Chunk.Path} (#{c.Chunk.ChunkIndex})`|{score}|", ct);
             }
 
             await stream.WriteLine("", ct);

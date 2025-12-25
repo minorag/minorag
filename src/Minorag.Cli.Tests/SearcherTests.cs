@@ -43,31 +43,28 @@ public class SearcherTests
 
         var chunkSameDirection = TestChunkFactory.CreateChunk(
             id: 1L,
-            embedding: [1f, 0f, 0f]);
+            embedding: [1f, 0f, 0f]); // perfect match
 
         var chunkDiagonal = TestChunkFactory.CreateChunk(
             id: 2L,
-            embedding: [1f, 1f, 0f]);
+            embedding: [1f, 1f, 0f]); // same length, lower similarity
 
         var chunkDifferentLength = TestChunkFactory.CreateChunk(
             id: 3L,
-            embedding: [1f, 0f]); // should be skipped
+            embedding: [1f, 0f]);     // shorter vector – should be filtered out
 
-        store.Chunks.Add(chunkSameDirection);
-        store.Chunks.Add(chunkDiagonal);
-        store.Chunks.Add(chunkDifferentLength);
+        store.Chunks.AddRange([chunkSameDirection, chunkDiagonal, chunkDifferentLength]);
 
-        var searcher = new Searcher(store, embedding, llm);
+        // Act
+        var context = await new Searcher(store, embedding, llm)
+            .RetrieveAsync("some question", verbose: false, topK: 2, ct: CancellationToken.None);
 
-        var context = await searcher.RetrieveAsync("question", verbose: false, topK: 10, ct: CancellationToken.None);
-
+        // Assert
         Assert.True(context.HasResults);
-        Assert.Equal(2, context.Chunks.Count);
-
-        Assert.Equal(1L, context.Chunks[0].Chunk.Id);
-        Assert.Equal(2L, context.Chunks[1].Chunk.Id);
-
-        Assert.True(context.Chunks[0].Score >= context.Chunks[1].Score);
+        Assert.Equal(2, context.Chunks.Count);          // filtered
+        Assert.Equal(1L, context.Chunks[0].Chunk.Id);         // sorted by similarity
+        Assert.Equal(2L, context.Chunks[1].Chunk.Id);         // next best
+        Assert.DoesNotContain(context.Chunks, c => c.Chunk.Id == 3L);
     }
 
     [Fact]
