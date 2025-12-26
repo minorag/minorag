@@ -4,6 +4,21 @@
 .markdown {
   font-size: 13px;
   line-height: 1.45;
+
+  /* prevent long tokens from breaking layout */
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.markdown p {
+  margin: 6px 0;
+}
+.markdown ul,
+.markdown ol {
+  margin: 6px 0 6px 18px;
+}
+.markdown li {
+  margin: 2px 0;
 }
 
 .markdown pre {
@@ -11,7 +26,8 @@
   padding: 10px;
   border-radius: 8px;
   overflow: auto;
-  background: rgba(127, 127, 127, 0.14); /* fallback behind theme */
+  background: rgba(127, 127, 127, 0.14);
+  -webkit-overflow-scrolling: touch; /* smoother on iOS */
 }
 
 .markdown code {
@@ -19,10 +35,20 @@
   font-size: 12px;
 }
 
+/* Inline code should wrap too */
+.markdown :not(pre) > code {
+  white-space: normal;
+}
+
 .markdown table {
   width: 100%;
   border-collapse: collapse;
   margin: 8px 0;
+
+  /* big win for mobile */
+  display: block;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .markdown th,
@@ -30,9 +56,35 @@
   border: 1px solid rgba(127, 127, 127, 0.25);
   padding: 6px 8px;
   vertical-align: top;
+
+  /* prevent single long words from exploding cells */
+  max-width: 480px;
+  overflow-wrap: anywhere;
 }
 
 .markdown th {
   font-weight: 600;
   background: rgba(127, 127, 127, 0.12);
+}
+
+/* ===== Mobile tweaks for markdown ===== */
+@media (max-width: 600px) {
+  .markdown {
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .markdown pre {
+    padding: 8px;
+    border-radius: 10px;
+  }
+
+  .markdown code {
+    font-size: 12px; /* keep code readable */
+  }
+
+  .markdown th,
+  .markdown td {
+    padding: 6px 6px;
+  }
 }
